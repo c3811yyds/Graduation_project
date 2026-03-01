@@ -502,15 +502,15 @@ def record_content_view(content_id):
         p = Progress(
             student_id=u.id,
             content_id=content_id,
-            course_id=ct.course_id,
-            viewed=True,
-            last_position=0,
+            progress_percent=100,
+            status="completed",
+            last_viewed_at=now(),
             completed_at=now()
         )
         db.session.add(p)
         db.session.commit()
 
-    return ok(None, "获取进度成功")
+    return ok(None, "进度更新成功")
 
 # ---------- contents ----------
 
