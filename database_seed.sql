@@ -47,21 +47,7 @@ CREATE TABLE `contents` (
 ) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 INSERT INTO `contents` VALUES (10,3,'image','第一讲','fdf0816d2f334917803c9e8021b3c586.png',NULL,75773,'2026-03-01 06:29:23'),(11,3,'image','第二讲','7d2833a95d874b0886524e993a05ecd3.png',NULL,63617,'2026-03-01 06:29:45'),(12,3,'image','第三讲','f8c90a5a6e6540649731c5c7d454bbb0.png',NULL,47834,'2026-03-01 06:29:57'),(13,3,'image','第四讲','e022d34c4bb54204949219cd0a391c99.png',NULL,46275,'2026-03-01 06:30:12'),(14,3,'image','第五讲','8cf12cca0c2a4bea93308d765a6880ca.png',NULL,53245,'2026-03-01 06:30:26'),(15,3,'image','第六讲','ec23c9fe546b4ee285b2883037b5fefa.png',NULL,49716,'2026-03-01 06:30:35'),(16,3,'image','第七讲','f9a2f684219e4bc48aa3c3c5823ceb30.png',NULL,46065,'2026-03-01 06:30:51'),(17,3,'image','第八讲','33d940f8fbe94bcaaa28fd7ba0789993.png',NULL,56918,'2026-03-01 06:31:12'),(18,3,'image','第九讲','6c43605590ef44209e0a231da9fc7d7f.png',NULL,48930,'2026-03-01 06:31:30'),(19,3,'image','第十讲','ef3e7e10fe4246769e36c8a7ad1a9c0a.png',NULL,56073,'2026-03-01 06:31:41'),(20,5,'image','第一讲','1f5e6a0ac10f4b9bb6ab8a5ac02aa2b9.png',NULL,72721,'2026-03-01 06:50:01'),(21,5,'image','期末复习1','20675e02fb0346f0b34f50e8a00a2fbe.png',NULL,72721,'2026-03-01 06:50:57');
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `courses` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `title` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `description` text COLLATE utf8mb4_unicode_ci,
-  `teacher_id` int NOT NULL,
-  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `ix_courses_teacher_id` (`teacher_id`),
-  KEY `ix_courses_title` (`title`),
-  CONSTRAINT `courses_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 /*!40101 SET character_set_client = @saved_cs_client */;
 INSERT INTO `courses` VALUES (1,'高等数学','极限、导数与积分的系统学习',2,'draft','2026-02-28 20:48:39','2026-02-28 18:07:51'),(2,'Python 数据分析','Pandas、NumPy 与可视化实战',2,'draft','2026-02-28 20:48:39','2026-02-28 18:07:49'),(3,'数据库原理','关系模型、SQL 与索引优化',2,'published','2026-02-28 20:48:39','2026-03-01 06:09:02'),(5,'操作系统基础','进程线程、内存与文件系统',2,'published','2026-02-28 20:48:39','2026-03-01 05:49:26');
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
