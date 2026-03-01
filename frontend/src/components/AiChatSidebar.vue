@@ -1,4 +1,27 @@
 <script setup>
+import { ref, watch, nextTick, computed, onMounted } from 'vue'
+
+const isOpen = ref(false)
+
+const forceUpdate = ref(1)
+const isLoggedIn = computed(() => {
+  forceUpdate.value
+  return !!sessionStorage.getItem('token')
+})
+
+onMounted(() => {
+  window.addEventListener('user-auth-changed', () => {
+    forceUpdate.value++
+    if (!isLoggedIn.value) {
+      messages.value = [
+        { role: 'ai', text: '你好！我是你的 AI 学习助教。有什么学习上的问题想探讨吗？' }
+      ]
+      isOpen.value = false
+    }
+  })
+})
+
+// 聊天记录 [{ role: 'user' | 'ai', text: '...', loading: false }]t setup>
 import { ref, watch, nextTick, computed } from 'vue'
 
 const isOpen = ref(false)
@@ -123,7 +146,7 @@ async function sendMessage() {
     <div class="ai-header">
       <div>
         <h4>🤖 智能学习助教</h4>
-        <select v-model="selectedModel" class="model-selector">
+        <select v-if="isLoggedIn" v-model="selectedModel" class="model-selector">
           <option v-for="m in availableModels" :key="m.id" :value="m.id">
             {{ m.name }}
           </option>
@@ -132,37 +155,43 @@ async function sendMessage() {
       <button class="close-btn" @click="isOpen = false">✕</button>
     </div>
 
-    <!-- 聊天内容区 -->
-    <div class="ai-body" ref="chatBodyRef">
-      <div 
-        v-for="(msg, index) in messages" 
-        :key="index"
-        class="msg-row"
-        :class="msg.role === 'user' ? 'row-right' : 'row-left'"
-      >
-        <div class="msg-bubble" :class="msg.role">
-          <span v-if="msg.loading" class="dot-typing">思考中...</span>
-          <span v-else style="white-space: pre-wrap;">{{ msg.text }}</span>
+    <!-- 未登录状态 -->
+    <div v-if="!isLoggedIn" class="ai-empty">
+      <p>登录后即可使用 AI 智能学习助教功能</p>
+    </div>
+
+    <!-- 已登录状态 -->
+    <template v-else>
+      <!-- 聊天内容区 -->
+      <div class="ai-body" ref="chatBodyRef">
+        <div
+          v-for="(msg, index) in messages"
+          :key="index"
+          class="msg-row"
+          :class="msg.role === 'user' ? 'row-right' : 'row-left'"
+        >
+          <div class="msg-bubble" :class="msg.role">
+            <span v-if="msg.loading" class="dot-typing">思考中...</span>
+            <span v-else style="white-space: pre-wrap;">{{ msg.text }}</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- 输入区 -->
-    <div class="ai-footer">
-      <textarea 
-        v-model="inputStr" 
-        class="ai-input" 
-        placeholder="向AI提问，例如：‘解释一下微积分’...按回车发送"
-        @keydown.enter.prevent="sendMessage"
-      ></textarea>
-      <button class="send-btn" :disabled="isLoading || !inputStr.trim()" @click="sendMessage">
-        发送
-      </button>
-    </div>
+      <!-- 输入区 -->
+      <div class="ai-footer">
+        <textarea
+          v-model="inputStr"
+          class="ai-input"
+          placeholder="向AI提问，例如：‘解释一下微积分’...按回车发送"
+          @keydown.enter.prevent="sendMessage"
+        ></textarea>
+        <button class="send-btn" :disabled="isLoading || !inputStr.trim()" @click="sendMessage">
+          发送
+        </button>
+      </div>
+    </template>
   </div>
-</template>
-
-<style scoped>
+</template><style scoped>
 .ai-drawer {
   position: fixed;
   top: 68px; /* 紧贴顶部 */
@@ -222,6 +251,18 @@ async function sendMessage() {
   color: #1e293b;
   font-size: 16px;
   margin-bottom: 4px;
+}
+
+.ai-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 15px;
+  background: #f1f5f9;
 }
 
 .model-selector {
