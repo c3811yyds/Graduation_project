@@ -114,19 +114,26 @@ async function createCourse() {
   }
 }
 
-onMounted(async () => {
-  await loadMe();
-  await loadCourses();
-
-  window.addEventListener('user-auth-changed', async () => {
+  onMounted(async () => {
     await loadMe();
     await loadCourses();
+
+    window.addEventListener('user-auth-changed', async () => {
+      await loadMe();
+      await loadCourses();
+    });
   });
-});
+  
+  import { defineAsyncComponent } from 'vue'
+  const AiChatSidebar = defineAsyncComponent(() => import('../components/AiChatSidebar.vue'))
+  const aiSidebarVisible = ref(false)
+
 </script>
 
 <template>
   <div class="page">
+    <AiChatSidebar v-model="aiSidebarVisible" />
+    
     <section class="hero">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
@@ -135,13 +142,16 @@ onMounted(async () => {
             {{ me ? `当前用户：${me.username}（${me.role}）` : "未登录，可先浏览课程，登录后可学习" }}
           </p>
         </div>
-        <button v-if="me && me.role === 'teacher'" class="btn btn-primary" @click="showCreateModal = true">
-          + 创建新课程
-        </button>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <button v-if="me" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none;" @click="aiSidebarVisible = true">
+            🤖 AI 助教
+          </button>
+          <button v-if="me && me.role === 'teacher'" class="btn btn-primary" @click="showCreateModal = true">
+            + 创建新课程
+          </button>
+        </div>
       </div>
-    </section>
-
-    <template v-if="me && me.role === 'student'">
+    </section>    <template v-if="me && me.role === 'student'">
       <section class="panel">
         <h2>已选课程（{{ enrolledCourses.length }}）</h2>
         <div class="grid">
