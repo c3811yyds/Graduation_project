@@ -1,8 +1,8 @@
 <template>
   <div class="memo-sidebar" :class="{ 'memo-open': isOpen }">
     <!-- Toggle Button -->
-    <div class="toggle-btn" @click="toggleSidebar" title="备忘录">
-      📝 设置 / 笔记本
+    <div class="toggle-btn" @click="toggleSidebar" title="备忘薄">
+      备忘薄
     </div>
 
     <div class="memo-content" v-if="isOpen">
@@ -212,7 +212,7 @@ onMounted(() => {
     if (isLoggedIn.value) {
         loadNotes()
     }
-    
+
     // Simple window event hook to listen if AppLayout fires a login event
     window.addEventListener('user-auth-changed', () => {
         if(isLoggedIn.value) {
@@ -220,6 +220,8 @@ onMounted(() => {
         } else {
             notes.value = []
             activeNoteId.value = null
+            editTitle.value = ''
+            editContent.value = ''
         }
     })
 })
