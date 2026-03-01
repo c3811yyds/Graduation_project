@@ -80,7 +80,11 @@ python -m venv venv
 # 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 运行服务 (默认监听在 5000 端口)
+# 3. 配置环境变量
+# 复制示例环境变量文件，并修改其中的数据库连接和硅基流动 API Key
+cp env.example .env
+
+# 4. 运行服务 (默认监听在 5000 端口)
 python app.py
 ```
 
