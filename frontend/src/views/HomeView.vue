@@ -117,6 +117,11 @@ async function createCourse() {
 onMounted(async () => {
   await loadMe();
   await loadCourses();
+
+  window.addEventListener('user-auth-changed', async () => {
+    await loadMe();
+    await loadCourses();
+  });
 });
 </script>
 
