@@ -57,7 +57,7 @@ Thumbs.db
 
 # Project specific
 backend/uploads/
-backend/storage/
+# backend/storage/ (已注释，放行静态资源)
 backend/flask_session/
 *.db
 backend/.env
