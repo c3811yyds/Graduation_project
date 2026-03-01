@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import http from '../api/http'
 import AuthModal from '../components/AuthModal.vue'
+import MemoSidebar from '../components/MemoSidebar.vue'
 
 const router = useRouter()
 const me = ref(null)
@@ -36,23 +37,17 @@ async function loadMe() {
 function logout() {
   sessionStorage.removeItem('token')
   me.value = null
-  router.push('/').then(() => {
-    window.location.reload()
+  window.dispatchEvent(new Event('user-auth-changed'))
+  router.push('/')
+}
+
+onMounted(() => {
+  loadMe().then(() => {
+    if(me.value) {
+       window.dispatchEvent(new Event('user-auth-changed'))
+    }
   })
-}
-
-async function onAuthSuccess() {
-  await loadMe()
-  router.push('/').then(() => {
-    window.location.reload()
-  })
-}
-
-function goDashboard() {
-  router.push('/dashboard')
-}
-
-onMounted(loadMe)
+})
 </script>
 
 <template>
@@ -75,8 +70,11 @@ onMounted(loadMe)
     <main class="main">
       <slot />
     </main>
+    
+    <!-- 全局挂载右侧抽屉云笔记系统 -->
+    <MemoSidebar />
 
-    <AuthModal 
+    <AuthModal
       v-if="authVisible" 
       v-model="authVisible" 
       :mode="authMode"
@@ -121,6 +119,8 @@ onMounted(loadMe)
 }
 .main {
   padding: 24px;
+  /* 留出边缘不被覆盖 */
+  max-width: 100%;
 }
 .btn {
   border: 1px solid #d0d7de;

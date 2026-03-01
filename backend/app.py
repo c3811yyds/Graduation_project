@@ -4,6 +4,7 @@ import os
 from flask_cors import CORS
 from extensions import db, jwt
 from routes_auth import auth_bp, user_bp, course_bp, content_bp
+from routes_note import note_bp
 
 load_dotenv()
 
@@ -45,6 +46,7 @@ def create_app():
     app.register_blueprint(user_bp)
     app.register_blueprint(course_bp)
     app.register_blueprint(content_bp)
+    app.register_blueprint(note_bp)
 
     @app.get("/api/health")
     def health():
