@@ -43,8 +43,9 @@
    - 集成测试：主流程验证。
 
 8. 部署
-   - 开发：本地 .env，Docker 可选。
-   - 生产：Nginx + Gunicorn + MySQL，打包 Vue 静态文件。
+   - 开发：本地 .env 安装，提供完整的前后端快速调试环境。
+   - 生产环境：使用 Docker Compose 统一编排，包含 Nginx、Gunicorn 和 MySQL 容器化一键部署。
+   - 配置管理：使用 `.env` 实现开发与生产全流程隔离配置。
 
 ## 快速开始🔥
 
@@ -251,6 +252,10 @@ npm run dev
 ### 【笔记模块】 (新增)
 - `GET /api/notes` : 获取用户的笔记，支持基于 `course_id` 过滤
 - `POST /api/notes` : 新增或更新某门课程的随堂笔记
+
+### 【智能 AI 实训助手】 (新增)
+- `POST /api/ai/chat` : 教师与学生的智能助教对话生成接口，接入大语言模型流式输出
+- **集成功能**: 全局左侧栏滑动抽屉随时唤出，利用 SSE (Server-Sent Events) 打字机效果呈现思考过程
 
 ### 💡业务流转总结：
 > 老师(`Users`)建立门课(`Courses`) -> 塞入课件资料(`Contents`) -> 学生(`Users`)报名选课(`Enrollments`) -> 学生阅读/刷课，系统记录更新进度(`Progress`) -> 学生边看视频边记录笔记(`Notes`) -> 学生写下期末小作(`Reviews`) -> 老师官方回帖，并且全班同学可对此点赞(`Review_likes`)。
