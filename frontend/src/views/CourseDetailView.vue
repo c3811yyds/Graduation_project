@@ -569,7 +569,7 @@ async function uploadContent() {
       }
     } catch {}
     const t = token();
-    window.open(`http://127.0.0.1:5000/api/contents/${contentId}/file?token=${t}`, "_blank");
+    window.open(`/api/contents/${contentId}/file?token=${t}`, "_blank");
   }
 
   // [后端映射]: GET /api/contents/<id>/file -> 按资源 ID 流式下载实体资料文件
@@ -582,7 +582,7 @@ async function downloadContent(contentId) {
     } catch {}
     const t = token();
     const a = document.createElement("a");
-    a.href = `http://127.0.0.1:5000/api/contents/${contentId}/file?download=1&token=${t}`;
+    a.href = `/api/contents/${contentId}/file?download=1&token=${t}`;
     a.download = "";
     document.body.appendChild(a);
     a.click();

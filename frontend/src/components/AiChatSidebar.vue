@@ -69,8 +69,8 @@ async function sendMessage() {
   try {
     const token = sessionStorage.getItem('token')
     
-    // 使用原生的 fetch 以支持 Server-Sent Events 流式呈现
-    const res = await fetch('http://127.0.0.1:5000/api/ai/chat', {
+    // 使用相对路径以支持Nginx反向代理和Server-Sent Events
+    const res = await fetch('/api/ai/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
