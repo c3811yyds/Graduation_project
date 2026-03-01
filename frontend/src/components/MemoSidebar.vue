@@ -8,7 +8,7 @@
     <div class="memo-content" v-if="isOpen">
       <div class="memo-header">
         <h3>我的云端笔记</h3>
-        <button class="btn btn-sm btn-primary" @click="createNote">➕ 新建</button>
+        <button class="btn btn-sm btn-primary" @click="createNote">新建</button>
       </div>
 
       <!-- Not logged in state -->
@@ -29,7 +29,7 @@
                 {{ n.title }} 
               </option>
             </select>
-            <button class="btn btn-sm btn-danger" title="删除" @click="deleteNote" :disabled="!activeNote">🗑️</button>
+            <button class="btn btn-sm btn-danger" @click="deleteNote" :disabled="!activeNote">删除</button>
           </div>
         </div>
         
@@ -57,7 +57,7 @@
           
           <div class="save-status">
             <span v-if="isSaving" class="status-text saving">正在同步云端...</span>
-            <span v-else-if="saveSuccess" class="status-text success">已保存至云端 ✓</span>
+            <span v-else-if="saveSuccess" class="status-text success">已保存至云端</span>
             <span v-else class="status-text muted">最近更新：{{ formatTime(activeNote.updated_at) }}</span>
           </div>
         </div>
@@ -75,6 +75,7 @@ const isOpen = ref(false)
 const notes = ref([])
 const activeNoteId = ref(null)
 const error = ref('')
+const forceUpdate = ref(1) // used to trigger a computed re-evaluate
 
 // Editing state
 const editTitle = ref('')
@@ -83,6 +84,7 @@ const isSaving = ref(false)
 const saveSuccess = ref(false)
 
 const isLoggedIn = computed(() => {
+  forceUpdate.value
   return !!sessionStorage.getItem('token')
 })
 
@@ -215,6 +217,7 @@ onMounted(() => {
 
     // Simple window event hook to listen if AppLayout fires a login event
     window.addEventListener('user-auth-changed', () => {
+        forceUpdate.value++ // trigger re-eval of isLoggedIn
         if(isLoggedIn.value) {
             loadNotes()
         } else {
@@ -222,6 +225,7 @@ onMounted(() => {
             activeNoteId.value = null
             editTitle.value = ''
             editContent.value = ''
+            isOpen.value = false // automatically close it logic
         }
     })
 })
@@ -230,13 +234,13 @@ onMounted(() => {
 <style scoped>
 .memo-sidebar {
   position: fixed;
-  top: 60px; /* Below topbar */
-  right: -320px; /* Hidden by default */
-  width: 320px;
-  height: calc(100vh - 60px);
+  top: 68px; /* 紧贴顶部导航栏的黑线下方 */
+  right: -340px; /* 默认隐藏 */
+  width: 340px; /* 加宽一点点看起来更大气 */
+  height: calc(100vh - 68px);
   background: #ffffff;
   border-left: 1px solid #e1e4e8;
-  box-shadow: -4px 0 15px rgba(0,0,0,0.05);
+  box-shadow: -6px 0 20px rgba(0,0,0,0.06);
   transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 99;
   display: flex;
@@ -249,10 +253,10 @@ onMounted(() => {
 
 .toggle-btn {
   position: absolute;
-  top: 20px;
-  left: -40px;
-  width: 40px;
-  height: 120px;
+  top: 24px;
+  left: -42px;
+  width: 42px;
+  height: 100px;
   background: #2563eb;
   color: white;
   display: flex;
@@ -261,9 +265,11 @@ onMounted(() => {
   writing-mode: vertical-rl;
   text-orientation: mixed;
   cursor: pointer;
-  border-radius: 8px 0 0 8px;
+  border-radius: 12px 0 0 12px;
   font-weight: bold;
-  box-shadow: -2px 2px 5px rgba(0,0,0,0.1);
+  font-size: 15px;
+  letter-spacing: 4px;
+  box-shadow: -4px 4px 10px rgba(37,99,235,0.2);
   user-select: none;
 }
 .toggle-btn:hover {
@@ -274,21 +280,22 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
+  padding: 20px;
 }
 
 .memo-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid #f0f0f0;
-  padding-bottom: 12px;
-  margin-bottom: 16px;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
 }
 .memo-header h3 {
   margin: 0;
-  font-size: 16px;
-  color: #24292f;
+  font-size: 18px;
+  color: #1e293b;
+  font-weight: 700;
 }
 
 .memo-body {
@@ -305,81 +312,96 @@ onMounted(() => {
 }
 
 .note-selector {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 .note-selector label {
   display: block;
-  font-size: 12px;
-  color: #57606a;
-  margin-bottom: 4px;
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 .select-box {
   flex: 1;
-  padding: 6px;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   outline: none;
+  font-size: 14px;
+  background: #f8fafc;
+  color: #334155;
+  transition: all 0.2s;
+}
+.select-box:focus {
+  border-color: #3b82f6;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .note-editor {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .note-title-input {
   width: 100%;
-  padding: 8px;
+  padding: 8px 0;
   border: 1px solid transparent;
-  border-bottom: 1px dashed #d0d7de;
-  font-size: 16px;
-  font-weight: bold;
+  border-bottom: 2px dashed #cbd5e1;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
   outline: none;
-  transition: border 0.2s;
+  background: transparent;
+  transition: border 0.3s ease;
 }
 .note-title-input:focus {
-  border-bottom: 1px solid #2563eb;
+  border-bottom: 2px solid #2563eb;
 }
 
 .note-textarea {
   flex: 1;
   width: 100%;
   resize: none;
-  padding: 12px;
-  border: 1px solid #d0d7de;
-  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   outline: none;
-  font-family: inherit;
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 14px;
-  line-height: 1.6;
-  background: #fdfdfd;
+  line-height: 1.8;
+  color: #334155;
+  background: #f8fafc;
+  transition: all 0.2s;
 }
 .note-textarea:focus {
-  border-color: #2563eb;
-  background: #fff;
+  border-color: #cbd5e1;
+  background: #ffffff;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
 }
 
 .save-status {
   text-align: right;
-  font-size: 12px;
+  font-size: 13px;
 }
-.muted { color: #8c959f; }
-.saving { color: #f59e0b; font-weight: bold;}
-.success { color: #10b981; font-weight: bold;}
+.muted { color: #94a3b8; }
+.saving { color: #d97706; font-weight: 500;}
+.success { color: #059669; font-weight: 500;}
 
-.error-msg { color: #cf222e; font-size: 12px; margin-bottom: 10px; }
+.error-msg { color: #dc2626; font-size: 13px; margin-bottom: 12px; }
 .memo-empty {
   text-align: center;
-  color: #8c959f;
-  margin-top: 40px;
-  font-size: 14px;
+  color: #94a3b8;
+  margin-top: 60px;
+  font-size: 15px;
 }
 
-.btn { cursor: pointer; border-radius: 6px; border: 1px solid transparent; font-weight: 600; }
-.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn { cursor: pointer; border-radius: 8px; border: 1px solid transparent; font-weight: 600; transition: all 0.2s; }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
 .btn-primary { background: #2563eb; color: white; border-color: #2563eb; }
-.btn-primary:hover { background: #1d4ed8; }
-.btn-danger { background: #cf222e; color: white; }
-.btn-danger:hover { background: #a41e25; }
+.btn-primary:hover { background: #1d4ed8; box-shadow: 0 4px 6px rgba(37,99,235,0.2); }
+.btn-danger { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+.btn-danger:hover { background: #fecaca; color: #b91c1c; }
 </style>
