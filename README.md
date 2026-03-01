@@ -81,8 +81,14 @@ python -m venv venv
 pip install -r requirements.txt
 
 # 3. 配置环境变量
-# 复制示例环境变量文件，并修改其中的数据库连接和硅基流动 API Key
+# 复制示例环境变量文件，并按需修改：
 cp env.example .env
+
+# 【.env 必填修改项提醒】:
+# SECRET_KEY=填入你的Flask密钥
+# JWT_SECRET_KEY=填入你的JWT密钥
+# DATABASE_URL=mysql+pymysql://你的账号:你的密码@127.0.0.1:3306/graduation_project?charset=utf8mb4
+# SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
 
 # 4. 运行服务 (默认监听在 5000 端口)
 python app.py
