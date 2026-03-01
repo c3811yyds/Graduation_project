@@ -26,7 +26,7 @@ cd Graduation_project
 cat << 'EOF' > backend/.env
 SECRET_KEY=填入你随机生成的Flask安全密钥_越长越好
 JWT_SECRET_KEY=填入你随机生成的JWT加密密钥_越长越好
-# 这里数据库名称保持 graduation_project 不要改
+# 数据库连接字符串（请勿修改账号密码和数据库名，必须与 docker-compose.yml 中的数据库配置严格对应）
 DATABASE_URL=mysql+pymysql://admin:admin@db:3306/graduation_project?charset=utf8mb4
 UPLOAD_DIR=./storage
 # 替换下方为你自己申请的 硅基流动 AI API Key
