@@ -1,19 +1,7 @@
 <script setup>
 import { ref, watch, nextTick, computed } from 'vue'
 
-const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false
-  }
-})
-
-const emit = defineEmits(['update:modelValue'])
-
-const drawerVisible = computed({
-  get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val)
-})
+const isOpen = ref(false)
 
 // 聊天记录 [{ role: 'user' | 'ai', text: '...', loading: false }]
 const messages = ref([
@@ -41,7 +29,7 @@ const scrollToBottom = () => {
 }
 
 // 监听打开时滚动底部
-watch(drawerVisible, (val) => {
+watch(isOpen, (val) => {
   if (val) {
     scrollToBottom()
   }
@@ -128,7 +116,10 @@ async function sendMessage() {
 </script>
 
 <template>
-  <div class="ai-drawer" :class="{ 'is-open': drawerVisible }">
+  <div class="ai-drawer" :class="{ 'is-open': isOpen }">
+    <div class="toggle-btn" @click="isOpen = !isOpen" title="AI助教">
+      AI 助教
+    </div>
     <div class="ai-header">
       <div>
         <h4>🤖 智能学习助教</h4>
@@ -138,7 +129,7 @@ async function sendMessage() {
           </option>
         </select>
       </div>
-      <button class="close-btn" @click="drawerVisible = false">✕</button>
+      <button class="close-btn" @click="isOpen = false">✕</button>
     </div>
 
     <!-- 聊天内容区 -->
@@ -169,39 +160,52 @@ async function sendMessage() {
       </button>
     </div>
   </div>
-
-  <!-- 遮罩层，用于点击外部关闭 -->
-  <div v-if="drawerVisible" class="drawer-mask" @click="drawerVisible = false"></div>
 </template>
 
 <style scoped>
 .ai-drawer {
   position: fixed;
-  top: 68px; /* 在顶部导航栏下方 */
-  left: 0;
-  bottom: 0;
+  top: 68px; /* 紧贴顶部 */
+  left: -350px; /* 默认隐藏 */
   width: 350px;
+  height: calc(100vh - 68px);
   background-color: #ffffff;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  border-right: 1px solid #e1e4e8;
+  box-shadow: 6px 0 20px rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
-  z-index: 1000;
-  transform: translateX(-100%);
-  transition: transform 0.3s ease-in-out;
+  z-index: 99;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ai-drawer.is-open {
-  transform: translateX(0);
+  left: 0;
 }
 
-.drawer-mask {
-  position: fixed;
-  top: 68px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.2);
-  z-index: 999;
+.toggle-btn {
+  position: absolute;
+  top: 24px;
+  right: -42px;
+  width: 42px;
+  height: 100px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  cursor: pointer;
+  border-radius: 0 12px 12px 0;
+  font-weight: bold;
+  font-size: 15px;
+  letter-spacing: 4px;
+  box-shadow: 4px 4px 10px rgba(16,185,129,0.2);
+  user-select: none;
+}
+
+.toggle-btn:hover {
+  background: #059669;
 }
 
 .ai-header {

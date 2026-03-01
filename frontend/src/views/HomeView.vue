@@ -123,16 +123,10 @@ async function createCourse() {
       await loadCourses();
     });
   });
-  
-  import { defineAsyncComponent } from 'vue'
-  const AiChatSidebar = defineAsyncComponent(() => import('../components/AiChatSidebar.vue'))
-  const aiSidebarVisible = ref(false)
-
 </script>
 
 <template>
   <div class="page">
-    <AiChatSidebar v-model="aiSidebarVisible" />
     
     <section class="hero">
       <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -143,9 +137,6 @@ async function createCourse() {
           </p>
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
-          <button v-if="me" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none;" @click="aiSidebarVisible = true">
-            🤖 AI 助教
-          </button>
           <button v-if="me && me.role === 'teacher'" class="btn btn-primary" @click="showCreateModal = true">
             + 创建新课程
           </button>

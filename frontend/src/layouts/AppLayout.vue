@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import http from '../api/http'
 import AuthModal from '../components/AuthModal.vue'
 import MemoSidebar from '../components/MemoSidebar.vue'
+import AiChatSidebar from '../components/AiChatSidebar.vue'
 
 const router = useRouter()
 const me = ref(null)
@@ -85,6 +86,7 @@ onMounted(() => {
     
     <!-- 全局挂载右侧抽屉云笔记系统 -->
     <MemoSidebar />
+    <AiChatSidebar />
 
     <AuthModal
       v-if="authVisible" 
