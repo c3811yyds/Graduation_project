@@ -34,6 +34,18 @@ async function loadMe() {
   }
 }
 
+async function onAuthSuccess() {
+  await loadMe()
+  window.dispatchEvent(new Event('user-auth-changed'))
+  router.push('/').then(() => {
+    window.location.reload()
+  })
+}
+
+function goDashboard() {
+  router.push('/dashboard')
+}
+
 function logout() {
   sessionStorage.removeItem('token')
   me.value = null
