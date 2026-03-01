@@ -21,11 +21,6 @@ onMounted(() => {
   })
 })
 
-// 聊天记录 [{ role: 'user' | 'ai', text: '...', loading: false }]t setup>
-import { ref, watch, nextTick, computed } from 'vue'
-
-const isOpen = ref(false)
-
 // 聊天记录 [{ role: 'user' | 'ai', text: '...', loading: false }]
 const messages = ref([
   { role: 'ai', text: '你好！我是你的 AI 学习助教。有什么学习上的问题想探讨吗？' }
