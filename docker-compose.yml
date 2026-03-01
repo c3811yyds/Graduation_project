@@ -41,7 +41,7 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: graduation_db
+      MYSQL_DATABASE: graduation_project
       MYSQL_USER: admin
       MYSQL_PASSWORD: admin
     ports:
