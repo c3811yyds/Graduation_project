@@ -43,9 +43,9 @@
    - 集成测试：主流程验证。
 
 8. 部署
-   - 开发：本地 .env 安装，提供完整的前后端快速调试环境。
-   - 生产环境：使用 Docker Compose 统一编排，包含 Nginx、Gunicorn 和 MySQL 容器化一键部署。
-   - 配置管理：使用 `.env` 实现开发与生产全流程隔离配置。
+   - 开发：本地 .env，Docker 可选。
+   - 生产：Nginx + Gunicorn + MySQL，打包 Vue 静态文件。
+   - 服务器完整部署详细步骤请专门参考：[Docker部署指南](./DEPLOY_DOCKER.md)
 
 ## 快速开始🔥
 
