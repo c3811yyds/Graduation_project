@@ -172,6 +172,7 @@ def allowed_ext(filename: str):
 def register():
     body = request.get_json(silent=True) or {}
     username = (body.get("username") or "").strip()
+    email = (body.get("email") or "").strip()
     password = body.get("password") or ""
     role = (body.get("role") or "student").strip().lower()
 
@@ -179,17 +180,24 @@ def register():
         return err("role 必须是 student/teacher")
     if len(username) < 2:
         return err("username 至少 2 位")
+    if "@" not in email:
+        return err("请输入有效的邮箱地址")
     if len(password) < 6:
         return err("password 至少 6 位")
 
     if User.query.filter_by(username=username).first():
         return err("用户名已存在", status=409)
+    if User.query.filter_by(email=email).first():
+        return err("该邮箱已被注册", status=409)
 
     u = User(
         username=username,
+        email=email,
+        status="active",
         password_hash=generate_password_hash(password),
         role=role,
         created_at=now(),
+        updated_at=now()
     )
     db.session.add(u)
     db.session.commit()
@@ -201,12 +209,12 @@ def register():
 @auth_bp.post("/login")
 def login():
     body = request.get_json(silent=True) or {}
-    username = (body.get("username") or "").strip()
+    account = (body.get("username") or "").strip()
     password = body.get("password") or ""
 
-    u = User.query.filter_by(username=username).first()
+    u = User.query.filter((User.username == account) | (User.email == account)).first()
     if not u or not check_password_hash(u.password_hash, password):
-        return err("用户名或密码错误", status=401)
+        return err("用户名/邮箱或密码错误", status=401)
 
     token = create_access_token(identity=str(u.id))
     return ok(

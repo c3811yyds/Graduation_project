@@ -9,6 +9,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'success', 'switch-mode'])
 
 const username = ref('')
+const email = ref('')
 const password = ref('')
 const role = ref('student')
 const loading = ref(false)
@@ -20,6 +21,9 @@ watch(
     if (v) {
       error.value = ''
       loading.value = false
+      username.value = ''
+      email.value = ''
+      password.value = ''
     }
   }
 )
@@ -35,6 +39,7 @@ async function submit() {
     if (props.mode === 'register') {
       await http.post('/auth/register', {
         username: username.value,
+        email: email.value,
         password: password.value,
         role: role.value,
       })
@@ -64,8 +69,14 @@ async function submit() {
       </div>
 
       <div class="field">
-        <label>用户名</label>
-        <input v-model="username" placeholder="请输入用户名" />
+        <label v-if="mode === 'login'">用户名 / 邮箱</label>
+        <label v-else>用户名</label>
+        <input v-model="username" :placeholder="mode === 'login' ? '请输入用户名或邮箱' : '请输入用户名'" />
+      </div>
+
+      <div v-if="mode === 'register'" class="field">
+        <label>邮箱</label>
+        <input v-model="email" type="email" placeholder="请输入唯一邮箱地址" />
       </div>
 
       <div class="field">
