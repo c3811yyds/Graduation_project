@@ -195,14 +195,13 @@
     </section>
 
     <!-- 留言 -->
-    <section class="panel">
+    <section class="panel" v-if="me">
       <h2>课程留言</h2>
       
-      <p class="muted" v-if="!me">请先登录并选课后参与留言，当前仅可查看。</p>
-      <p class="muted" v-else-if="isStudent && !isEnrolled">请先选课后参与留言，当前仅可查看。</p>
+      <p class="muted" v-if="isStudent && !isEnrolled">请先选课后参与留言，当前仅可查看。</p>
 
       <template v-if="true">
-        <div class="msg-form">
+        <div class="msg-form" v-if="isTeacher || (isStudent && isEnrolled)">
           <textarea v-model="newMessage" rows="3" placeholder="输入留言内容..." />
           <button class="btn btn-primary" @click="sendMessage">发送留言</button>
         </div>
