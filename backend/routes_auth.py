@@ -4,6 +4,11 @@ from datetime import datetime
 from pathlib import Path
 import os
 import uuid
+import random
+from datetime import timedelta
+import smtplib
+from email.mime.text import MIMEText
+from email.header import Header
 
 from flask import Blueprint, current_app, jsonify, request, send_file
 from flask_jwt_extended import create_access_token, decode_token, get_jwt_identity, jwt_required
@@ -11,7 +16,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 from extensions import db
-from models import User, Course, Enrollment, Content, Progress, Message, Review, ReviewLike
+from models import User, Course, Enrollment, Content, Progress, Message, Review, ReviewLike, VerifyCode, TeacherInviteCode
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 user_bp = Blueprint("users", __name__, url_prefix="/api/users")
@@ -81,12 +86,11 @@ def is_enrolled(course_id: int, student_id: int):
     )
 
 
-def can_view_content(u: User, c: Course):
-    if is_teacher(u):
-        return c.teacher_id == u.id
-    if is_student(u):
-        return is_enrolled(c.id, u.id)
-    return False
+def can_view_content(u, c: Course):
+    if c.status == "draft":
+        if u is None or c.teacher_id != u.id:
+            return False
+    return True
 
 
 def serialize_course(c: Course, u: User | None = None):
@@ -94,11 +98,15 @@ def serialize_course(c: Course, u: User | None = None):
     reviews = Review.query.filter_by(course_id=c.id).all()
     avg_rating = sum([r.rating for r in reviews]) / len(reviews) if reviews else 0.0
 
+    teacher = User.query.get(c.teacher_id)
+    t_name = teacher.username if teacher else "未知"
+
     data = {
         "id": c.id,
         "title": c.title,
         "description": c.description,
         "teacher_id": c.teacher_id,
+        "teacher_name": t_name,
         "status": c.status,
         "created_at": c.created_at.isoformat() if c.created_at else None,
         "updated_at": c.updated_at.isoformat() if c.updated_at else None,
@@ -166,6 +174,66 @@ def allowed_ext(filename: str):
 
 # ---------- auth ----------
 
+def send_email_code(email: str, code: str):
+    # This expects env variables to send real emails, else prints to console
+    mail_server = os.getenv("MAIL_SERVER")
+    mail_port = as_int(os.getenv("MAIL_PORT")) or 465
+    mail_user = os.getenv("MAIL_USERNAME")
+    mail_pass = os.getenv("MAIL_PASSWORD")
+
+    print(f"========== 验证码已生成 [用于测试/备用] ==========")
+    print(f"邮箱: {email} | 验证码: {code}")
+    print(f"==================================================")
+
+    if not all([mail_server, mail_port, mail_user, mail_pass]):
+        print("注意: 暂未配置完整的 MAIL 相关环境变量(MAIL_SERVER等)，将只在控制台打印验证码")
+        return True
+
+    try:
+        from email.utils import formataddr
+        msg = MIMEText(f"【智能学习网站】您的注册验证码为：{code}，5分钟内有效。", 'plain', 'utf-8')
+        msg['From'] = formataddr((str(Header("学习平台", 'utf-8')), mail_user))
+        msg['To'] = email
+        msg['Subject'] = Header("账号注册验证码", 'utf-8')
+
+        if mail_port in [465]:
+            server = smtplib.SMTP_SSL(mail_server, mail_port)
+        else:
+            server = smtplib.SMTP(mail_server, mail_port)
+            server.starttls()
+            
+        server.login(mail_user, mail_pass)
+        server.sendmail(mail_user, [email], msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print("发送邮件失败:", e)
+        return False
+
+@auth_bp.post("/send-code")
+def send_code():
+    body = request.get_json(silent=True) or {}
+    email = (body.get("email") or "").strip()
+    if "@" not in email:
+        return err("请输入有效的邮箱地址")
+        
+    if User.query.filter_by(email=email).first():
+        return err("该邮箱已注册账号，请直接登录", status=409)
+        
+    code = str(random.randint(100000, 999999))
+    expires = now() + timedelta(minutes=5)
+    
+    # 清理旧验证码并插入新验证码
+    VerifyCode.query.filter_by(email=email).delete()
+    vc = VerifyCode(email=email, code=code, expires_at=expires)
+    db.session.add(vc)
+    db.session.commit()
+    
+    if send_email_code(email, code):
+        return ok(None, "验证码已发送，请注意查收")
+    else:
+        return err("验证码发送失败，请检查系统邮件配置", status=500)
+
 # [前端对应]: 登录注册弹窗 (AuthModal.vue) -> "注册" 按钮/表单
 # [业务逻辑]: 处理新用户注册并入库
 @auth_bp.post("/register")
@@ -175,6 +243,8 @@ def register():
     email = (body.get("email") or "").strip()
     password = body.get("password") or ""
     role = (body.get("role") or "student").strip().lower()
+    verify_code = (body.get("verify_code") or "").strip()
+    invite_code = (body.get("invite_code") or "").strip()
 
     if role not in {"student", "teacher"}:
         return err("role 必须是 student/teacher")
@@ -184,6 +254,22 @@ def register():
         return err("请输入有效的邮箱地址")
     if len(password) < 6:
         return err("password 至少 6 位")
+    if not verify_code:
+        return err("请输入邮箱验证码")
+
+    if role == "teacher":
+        if not invite_code:
+            return err("注册教师账号需要提供专属邀请码")
+        ic = TeacherInviteCode.query.filter_by(code=invite_code, is_used=False).first()
+        if not ic or ic.expires_at < now():
+            return err("无效或已过期的教师邀请码")
+
+    # 查验验证码
+    vc = VerifyCode.query.filter_by(email=email).first()
+    if not vc or vc.code != verify_code:
+        return err("验证码错误")
+    if vc.expires_at < now():
+        return err("验证码已过期，请重新获取")
 
     if User.query.filter_by(username=username).first():
         return err("用户名已存在", status=409)
@@ -201,6 +287,16 @@ def register():
     )
     db.session.add(u)
     db.session.commit()
+    
+    # 标记验证码和邀请码已使用
+    db.session.delete(vc)
+    if role == "teacher":
+        ic = TeacherInviteCode.query.filter_by(code=invite_code).first()
+        if ic:
+            ic.is_used = True
+            ic.used_by_id = u.id
+    db.session.commit()
+
     return ok({"id": u.id, "username": u.username, "role": u.role}, "注册成功", status=201)
 
 
@@ -249,7 +345,13 @@ def list_courses():
     uid = as_int(get_jwt_identity()) if get_jwt_identity() else None
     u = User.query.get(uid) if uid else None
 
-    courses = Course.query.order_by(Course.id.desc()).all()
+    query = Course.query
+    if u and is_teacher(u):
+        query = query.filter((Course.status == "published") | ((Course.status == "draft") & (Course.teacher_id == u.id)))
+    else:
+        query = query.filter_by(status="published")
+
+    courses = query.order_by(Course.id.desc()).all()
     return ok([serialize_course(c, u) for c in courses])
 
 
@@ -525,18 +627,16 @@ def record_content_view(content_id):
 # [前端对应]: 课程详情页 (CourseDetailView.vue) -> "课程内容" Tab 分页卡片被点击激活拉取大类列表
 # [业务逻辑]: 将针对本课程在库中归档的所有相关 PDF 文稿, 视频文件路径作列表集合返回
 @course_bp.get("/<int:course_id>/contents")
-@jwt_required()
+@jwt_required(optional=True)
 def list_course_contents(course_id):
     u = current_user()
-    if not u:
-        return err("token无效或用户不存在", status=401)
 
     c = course_by_id(course_id)
     if not c:
         return err("课程不存在", status=404)
 
     if not can_view_content(u, c):
-        return err("你未选修该课程或无权限查看内容", status=403)
+        return err("非公开内容无法未授权预览", status=403)
 
     rows = Content.query.filter_by(course_id=course_id).order_by(Content.id.desc()).all()
     return ok([serialize_content(x) for x in rows])
@@ -666,21 +766,22 @@ def access_content_file(content_id):
         token = auth[7:].strip()
     if not token:
         token = (request.args.get("token") or "").strip()
-    if not token:
-        return err("缺少访问令牌", status=401)
+        
+    is_download = request.args.get("download") == "1"
+    
+    u = None
+    if token:
+        try:
+            from flask_jwt_extended import decode_token
+            payload = decode_token(token)
+            uid = as_int(payload.get("sub"))
+            if uid:
+                u = User.query.get(uid)
+        except Exception:
+            pass
 
-    try:
-        payload = decode_token(token)
-        uid = as_int(payload.get("sub"))
-    except Exception:
-        return err("令牌无效或已过期", status=401)
-
-    if not uid:
-        return err("令牌身份无效", status=401)
-
-    u = User.query.get(uid)
-    if not u:
-        return err("用户不存在", status=401)
+    if is_download and not u:
+        return err("下载需登录", status=401)
 
     item = Content.query.get(content_id)
     if not item:
@@ -691,7 +792,7 @@ def access_content_file(content_id):
         return err("课程不存在", status=404)
 
     if not can_view_content(u, c):
-        return err("你已退选或未选该课程，请先选课", status=403)
+        return err("非公开内容无法未授权预览", status=403)
 
     p = (item.url_or_path or "").strip()
 
@@ -733,22 +834,18 @@ def access_content_file(content_id):
 # [前端对应]: 课程详情页 (CourseDetailView.vue) -> 切换 "留言交流" Tab 时刷新渲染聊天流水
 # [业务逻辑]: 顺着发表的时间节点整理交互回复数据
 @course_bp.get("/<int:course_id>/messages")
-@jwt_required()
+@jwt_required(optional=True)
 def list_course_messages(course_id):
     u = current_user()
-    if not u:
-        return err("token无效或用户不存在", status=401)
 
     c = course_by_id(course_id)
     if not c:
         return err("课程不存在", status=404)
 
-    if is_student(u) and not is_enrolled(course_id, u.id):
-        return err("你未选修该课程，不能查看留言", status=403)
-    if is_teacher(u) and c.teacher_id != u.id:
-        return err("无权限查看该课程留言", status=403)
-    if not (is_student(u) or is_teacher(u)):
-        return err("无权限", status=403)
+    if c.status == "draft":
+        if u is None or c.teacher_id != u.id:
+            return err("无法查看草稿课程的留言", status=403)
+    
 
     rows = Message.query.filter_by(course_id=course_id).order_by(Message.id.asc()).all()
     return ok([serialize_message(x) for x in rows])
@@ -757,11 +854,11 @@ def list_course_messages(course_id):
 # [前端对应]: 课程详情页 (CourseDetailView.vue) -> 底部留言框敲好字点下 "发送留言" 图标
 # [业务逻辑]: 写入一条由学子/老师发出的图文探讨新消息
 @course_bp.post("/<int:course_id>/messages")
-@jwt_required()
+@jwt_required(optional=True)
 def create_course_message(course_id):
     u = current_user()
     if not u:
-        return err("token无效或用户不存在", status=401)
+        return err("请先登录", status=401)
 
     c = course_by_id(course_id)
     if not c:
@@ -827,11 +924,11 @@ def list_course_reviews(course_id):
 # [前端对应]: 课程详情页 (CourseDetailView.vue) -> 学生专属的 "点选五角星，提交打分评价" 框表单按钮
 # [业务逻辑]: 收留定档学生的最终评价信息(内含查重限制，一人单次)
 @course_bp.post("/<int:course_id>/reviews")
-@jwt_required()
+@jwt_required(optional=True)
 def create_course_review(course_id):
     u = current_user()
     if not u:
-        return err("需要登录", status=401)
+        return err("请先登录", status=401)
     
     c = course_by_id(course_id)
     if not c:

@@ -12,8 +12,12 @@ const username = ref('')
 const email = ref('')
 const password = ref('')
 const role = ref('student')
+const verifyCode = ref('')
+const inviteCode = ref('')
 const loading = ref(false)
 const error = ref('')
+const cooldown = ref(0)
+let timer = null
 
 watch(
   () => props.modelValue,
@@ -24,12 +28,33 @@ watch(
       username.value = ''
       email.value = ''
       password.value = ''
+      verifyCode.value = ''
+      inviteCode.value = ''
     }
   }
 )
 
+async function sendCode() {
+  if (!email.value || !email.value.includes('@')) {
+    error.value = '请输入有效的邮箱地址'
+    return
+  }
+  error.value = ''
+  try {
+    await http.post('/auth/send-code', { email: email.value })
+    cooldown.value = 60
+    timer = setInterval(() => {
+      cooldown.value--
+      if (cooldown.value <= 0) clearInterval(timer)
+    }, 1000)
+  } catch (e) {
+    error.value = e?.response?.data?.message || '发送失败'
+  }
+}
+
 function close() {
   emit('update:modelValue', false)
+  if (timer) clearInterval(timer)
 }
 
 async function submit() {
@@ -42,6 +67,8 @@ async function submit() {
         email: email.value,
         password: password.value,
         role: role.value,
+        verify_code: verifyCode.value,
+        invite_code: inviteCode.value,
       })
     }
     const res = await http.post('/auth/login', {
@@ -61,7 +88,7 @@ async function submit() {
 </script>
 
 <template>
-  <div v-if="modelValue" class="modal-mask" @click.self="close">
+  <div v-if="modelValue" class="modal-mask">
     <div class="modal-card">
       <div class="modal-head">
         <h3>{{ mode === 'login' ? '登录' : '注册' }}</h3>
@@ -90,6 +117,21 @@ async function submit() {
           <option value="student">学生</option>
           <option value="teacher">教师</option>
         </select>
+      </div>
+
+      <div v-if="mode === 'register'" class="field">
+        <label>验证码</label>
+        <div style="display: flex; gap: 8px;">
+          <input v-model="verifyCode" placeholder="请输入验证码" style="flex: 1" />
+          <button class="btn" @click="sendCode" :disabled="cooldown > 0">
+            {{ cooldown > 0 ? `${cooldown}秒` : '发送验证码' }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="mode === 'register' && role === 'teacher'" class="field">
+        <label>教师专属邀请码</label>
+        <input v-model="inviteCode" placeholder="请输入系统发放的教师邀请码" />
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>

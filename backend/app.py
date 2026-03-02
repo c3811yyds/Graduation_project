@@ -42,6 +42,10 @@ def create_app():
     jwt.init_app(app)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
+    with app.app_context():
+        import models
+        db.create_all()
+
     # 蓝图注册
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)

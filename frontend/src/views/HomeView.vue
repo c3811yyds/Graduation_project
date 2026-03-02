@@ -15,14 +15,15 @@ const availableCourses = computed(() =>
 );
 
 // 教师视角的课程分类
-const teacherPublishedCourses = computed(() => 
-  courses.value.filter(c => c.status === "published")
+const teacherMyDraftCourses = computed(() =>
+  courses.value.filter(c => c.status === "draft" && c.teacher_id === me.value?.id)
 );
-const teacherDraftCourses = computed(() => 
-  courses.value.filter(c => c.status === "draft")
+const teacherMyPublishedCourses = computed(() =>
+  courses.value.filter(c => c.status === "published" && c.teacher_id === me.value?.id)
 );
-
-// [功能说明]: 页面初始化时检查是否有 Token 并加载当前用户信息，判断是学生还是教师
+const teacherOtherPublishedCourses = computed(() =>
+  courses.value.filter(c => c.status === "published" && c.teacher_id !== me.value?.id)
+);// [功能说明]: 页面初始化时检查是否有 Token 并加载当前用户信息，判断是学生还是教师
 async function loadMe() {
   const token = sessionStorage.getItem("token");
   if (!token) {
@@ -160,7 +161,7 @@ async function createCourse() {
       </section>
 
       <section class="panel">
-        <h2>未选课程（{{ availableCourses.length }}）</h2>
+        <h2>可选课程（{{ availableCourses.length }}）</h2>
         <div class="grid">
           <article class="card" v-for="c in availableCourses" :key="c.id">
             <h3>{{ c.title }}</h3>
@@ -179,33 +180,50 @@ async function createCourse() {
 
     <template v-else-if="me && me.role === 'teacher'">
       <section class="panel">
-        <h2>草稿课程（未发布）</h2>
+        <h2>我的草稿箱(仅自己可见)</h2>
         <div class="grid">
           <!-- [视图结构]: 教师特有的 "草稿课程" 区域，提供发布与内容的编辑权 -->
-          <article class="card" v-for="c in teacherDraftCourses" :key="c.id">
+          <article class="card" v-for="c in teacherMyDraftCourses" :key="c.id">
             <h3>{{ c.title }}</h3>
+            <small style="display:block; margin-bottom:8px; color:#666">授课教师: {{ c.teacher_name }}</small>
             <p>{{ c.description || "暂无简介" }}</p>
             <div class="actions">
               <button class="btn" @click="openDetail(c.id)">查看详情/上传内容</button>
               <button class="btn btn-primary" @click="publishCourse(c.id)">发布课程</button>
             </div>
           </article>
-          <p class="muted" v-if="!teacherDraftCourses.length">暂无草稿课程</p>
+          <p class="muted" v-if="!teacherMyDraftCourses.length">暂无草稿课程</p>
         </div>
       </section>
 
       <section class="panel">
-        <h2>已发布课程（学生可见）</h2>
+        <h2>我发布的课程</h2>
         <div class="grid">
-          <article class="card" v-for="c in teacherPublishedCourses" :key="c.id">
+          <article class="card" v-for="c in teacherMyPublishedCourses" :key="c.id">
             <h3>{{ c.title }}</h3>
+            <small style="display:block; margin-bottom:8px; color:#666">授课教师: {{ c.teacher_name }}</small>
             <p>{{ c.description || "暂无简介" }}</p>
             <div class="actions">
               <button class="btn" @click="openDetail(c.id)">查看详情/管理</button>
               <button class="btn btn-danger" @click="unpublishCourse(c.id)">下架课程</button>
             </div>
           </article>
-          <p class="muted" v-if="!teacherPublishedCourses.length">暂无已发布课程</p>
+          <p class="muted" v-if="!teacherMyPublishedCourses.length">您暂未发布课程</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>其他教师发布的课程</h2>
+        <div class="grid">
+          <article class="card" v-for="c in teacherOtherPublishedCourses" :key="c.id">
+            <h3>{{ c.title }}</h3>
+            <small style="display:block; margin-bottom:8px; color:#666">授课教师: {{ c.teacher_name }}</small>
+            <p>{{ c.description || "暂无简介" }}</p>
+            <div class="actions">
+              <button class="btn" @click="openDetail(c.id)">查看详情</button>
+            </div>
+          </article>
+          <p class="muted" v-if="!teacherOtherPublishedCourses.length">暂无其他教师课程</p>
         </div>
       </section>
     </template>

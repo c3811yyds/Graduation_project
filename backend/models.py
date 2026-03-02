@@ -104,3 +104,18 @@ class Note(db.Model):
     content = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False)
     updated_at = db.Column(db.DateTime, nullable=False)
+
+class VerifyCode(db.Model):
+    __tablename__ = "verify_codes"
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), index=True, nullable=False)
+    code = db.Column(db.String(10), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
+class TeacherInviteCode(db.Model):
+    __tablename__ = "teacher_invite_codes"
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(50), unique=True, nullable=False)
+    is_used = db.Column(db.Boolean, default=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)

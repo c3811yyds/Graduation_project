@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page" v-if="course">
     <header class="head">
       <div>
@@ -6,7 +6,8 @@
         <p class="muted">{{ course.description || "暂无课程简介" }}</p>
         <div class="meta">
           <span class="tag">课程ID: {{ course.id }}</span>
-          <span class="tag">状态: {{ course.status }}</span>
+            <span class="tag">授课老师: {{ course.teacher_name || "未知" }}</span>
+            <span class="tag">状态: {{ course.status }}</span>
           <span class="tag rating-tag">综合评分: {{ course.rating > 0 ? course.rating + ' / 5.0' : '暂无评分' }} ({{ course.review_count || 0 }}条)</span>
           <span v-if="isStudent" class="tag">
             {{ isEnrolled ? "已选课程" : "未选课程" }}
@@ -113,11 +114,8 @@
     <section class="panel">
       <h2>课程内容</h2>
 
-      <template v-if="isStudent && !isEnrolled">
-        <p class="muted">请先选课后查看课程内容。</p>
-      </template>
-
-      <template v-else>
+      <template v-if="true">
+        <p class="muted" v-if="isStudent && !isEnrolled">（提示：选课后可参与进度记录，非选课状态也可浏览以下内容）</p>
         <!-- 教师上传 -->
         <div v-if="isTeacherOwner" class="upload-box">
           <h3>上传课件（教师）</h3>
@@ -164,14 +162,13 @@
     </section>
 
     <!-- 留言 -->
-    <section class="panel" v-if="me">
+    <section class="panel">
       <h2>课程留言</h2>
+      
+      <p class="muted" v-if="!me">请先登录并选课后参与留言，当前仅可查看。</p>
+      <p class="muted" v-else-if="isStudent && !isEnrolled">请先选课后参与留言，当前仅可查看。</p>
 
-      <template v-if="isStudent && !isEnrolled">
-        <p class="muted">请先选课后参与留言。</p>
-      </template>
-
-      <template v-else>
+      <template v-if="true">
         <div class="msg-form">
           <textarea v-model="newMessage" rows="3" placeholder="输入留言内容..." />
           <button class="btn btn-primary" @click="sendMessage">发送留言</button>
@@ -213,10 +210,12 @@
           <div class="msg-body" style="margin-top:0.5rem">
             {{ r.comment || "没有留下文字评论" }}
           </div>
-          <div v-if="r.reply_content" class="teacher-reply">
-            <strong>老师回复：</strong>
-            <p>{{ r.reply_content }}</p>
-            <span class="muted" style="font-size: 0.8rem;">{{ formatTime(r.reply_time) }}</span>
+          <div v-if="r.reply_content" class="teacher-reply" style="margin-top: 1rem; padding: 12px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="color: #1e3a8a; font-size: 0.95rem;">{{ course.teacher_name || '老师' }} <span style="font-weight: normal; color: #64748b; font-size: 0.85rem;">(授课老师)</span></strong>
+              <span class="muted" style="font-size: 0.8rem;">{{ formatTime(r.reply_time) }}</span>
+            </div>
+            <div style="font-size: 0.95rem; color: #334155; line-height: 1.5; white-space: pre-wrap;">{{ r.reply_content }}</div>
           </div>
         </li>
       </ul>
@@ -342,22 +341,13 @@ async function loadCourseFromList() {
 // [后端映射]: 组合请求获取特定课程资源 (GET /api/courses/<id>/contents) 和 弹幕区评论等消息互动数据
 async function loadLearningData() {
   if (!course.value) return;
-  // 未登录时，不请求受保护的内容和留言接口，直接返回
   if (!me.value) {
-    contents.value = [];
-    messages.value = [];
     studentProgressData.value = { progress: 0, completed: 0, total: 0 };
     enrolledStudentsData.value = [];
-    return;
   }
-  // 学生未选课时不请求内容与留言，避免403刷屏
   if (isStudent.value && !isEnrolled.value) {
-    contents.value = [];
-    messages.value = [];
     studentProgressData.value = { progress: 0, completed: 0, total: 0 };
-    return;
   }
-
   const reqs = [
     http.get(`/courses/${courseId}/contents`),
     http.get(`/courses/${courseId}/messages`),
