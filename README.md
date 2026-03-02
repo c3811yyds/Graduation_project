@@ -89,6 +89,7 @@ cp env.example .env
 # JWT_SECRET_KEY=填入你的JWT密钥
 # DATABASE_URL=mysql+pymysql://你的账号:你的密码@127.0.0.1:3306/graduation_project?charset=utf8mb4
 # SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
+# MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD=填入你的发信邮箱配置(用于发送注册验证码)
 
 # 4. 运行服务 (默认监听在 5000 端口)
 python app.py
@@ -112,6 +113,8 @@ npm run dev
 
 ### 认证模块
 - 登录/注册，学生/教师 角色分离
+- 引入邮箱验证码防刷机制
+- 引入独立的系统分配教师邀请码机制
 - 基于 SessionStorage 的跨 Tab 页独立登录环境机制
 - 登录/退出
 - 学生/教师角色区分
@@ -138,7 +141,7 @@ npm run dev
 - 回复学生的课程评价，删除恶意评论。
 
 ## 数据库表设计
-核心数据表采用级联及多对多关联设计。总共包含 **9 张表**。
+核心数据表采用级联及多对多关联设计。总共包含 **11 张表**。
 
 ### Table 1: `users` (用户表)
 - `id` (PK)
@@ -208,6 +211,19 @@ npm run dev
 - `content` (长文本格式笔记内容)
 - `created_at`, `updated_at`
 
+### Table 10: `verify_codes` (邮箱验证码表)
+- `id` (PK)
+- `email` (目标邮箱)
+- `code` (验证码)
+- `created_at`, `expires_at`
+
+### Table 11: `teacher_invite_codes` (教师邀请码表)
+- `id` (PK)
+- `code` (系统分配的邀请码)
+- `is_used` (布尔值：是否已使用)
+- `used_by` (FK -> users.id, 绑定的用户)
+- `created_at`, `used_at`
+
 ### 关系说明
 *   **users(teacher)** `1-N` **courses**
 *   **users(student)** `M-N` **courses** (通过 `enrollments` 桥接)
@@ -222,7 +238,8 @@ npm run dev
 包含认证保护头 `Authorization: Bearer <token>`
 
 ### 【认证及用户】
-- `POST /api/auth/register` : 用户身份注册
+- `POST /api/auth/send-code` : (新增) 发送邮箱验证码
+- `POST /api/auth/register` : 用户身份注册（需验证码，教师需系统邀请码）
 - `POST /api/auth/login` : 用户认证换取 Token (前端清除 token 即退出)
 - `GET /api/users/me` : 获取当前凭证所有者信息
 - `PATCH /api/users/me` : 更新个人资料

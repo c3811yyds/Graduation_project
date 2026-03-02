@@ -31,6 +31,11 @@ DATABASE_URL=mysql+pymysql://admin:admin@db:3306/graduation_project?charset=utf8
 UPLOAD_DIR=./storage
 # 替换下方为你自己申请的 硅基流动 AI API Key
 SILICON_API_KEY=sk-xxxxxxx
+# 邮箱注册验证码配置 (必填 - 用于注册发送验证码)
+MAIL_SERVER=smtp.qq.com
+MAIL_PORT=465
+MAIL_USERNAME=your_email@qq.com
+MAIL_PASSWORD=your_email_auth_code
 EOF
 ```
 
