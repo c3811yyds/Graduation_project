@@ -209,10 +209,13 @@
         <ul class="msg-list">
           <li v-for="m in messages" :key="m.id">
             <div class="msg-top">
-              <strong>#{{ m.id }}</strong>
-              <span class="muted">用户{{ m.sender_id }} · {{ formatTime(m.created_at) }}</span>
+              <strong :style="m.sender_role === 'teacher' ? 'color: #3b82f6;' : ''">
+                {{ m.sender_name || '用户' + m.sender_id }} 
+                <span v-if="m.sender_role === 'teacher'" style="font-size: 0.8em; font-weight: normal; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">老师</span>
+              </strong>
+              <span class="muted">· {{ formatTime(m.created_at) }}</span>
             </div>
-            <div>{{ m.content }}</div>
+            <div style="margin-top: 4px;">{{ m.content }}</div>
           </li>
         </ul>
 

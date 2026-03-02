@@ -136,10 +136,17 @@ def serialize_content(x: Content):
 
 
 def serialize_message(x: Message):
+    sender = User.query.get(x.sender_id)
+    sender_name = sender.username if sender else "未知用户"
+    if sender and getattr(sender, 'real_name', None):
+        sender_name = sender.real_name
+        
     return {
         "id": x.id,
         "course_id": x.course_id,
         "sender_id": x.sender_id,
+        "sender_name": sender_name,
+        "sender_role": sender.role if sender else "student",
         "receiver_id": x.receiver_id,
         "content": x.content,
         "created_at": x.created_at.isoformat() if x.created_at else None,
