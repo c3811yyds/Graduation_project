@@ -300,6 +300,21 @@ def register():
     return ok({"id": u.id, "username": u.username, "role": u.role}, "注册成功", status=201)
 
 
+@auth_bp.post("/generate-invite")
+@jwt_required()
+def generate_invite():
+    u = current_user()
+    if not is_teacher(u):
+        return err("仅限教师生成邀请码", status=403)
+    
+    code = f"TCH-{uuid.uuid4().hex[:8].upper()}"
+    expires = now() + timedelta(days=1)
+    ic = TeacherInviteCode(code=code, expires_at=expires)
+    db.session.add(ic)
+    db.session.commit()
+    
+    return ok({"code": code, "expires_at": expires.isoformat()})
+
 # [前端对应]: 登录注册弹窗 (AuthModal.vue) -> "登录" 按钮/表单
 # [业务逻辑]: 验证用户身份并下发可跨越请求的 JWT Token
 @auth_bp.post("/login")

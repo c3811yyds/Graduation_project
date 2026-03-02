@@ -91,6 +91,23 @@ async function unpublishCourse(courseId) {
   }
 }
 
+const showInviteModal = ref(false);
+const generatedCode = ref("");
+const isGenerating = ref(false);
+
+async function generateInvite() {
+  if (isGenerating.value) return;
+  isGenerating.value = true;
+  try {
+    const res = await http.post("/auth/generate-invite");
+    generatedCode.value = res.data.data.code;
+  } catch (e) {
+    alert(e?.response?.data?.message || "生成失败");
+  } finally {
+    isGenerating.value = false;
+  }
+}
+
 const showCreateModal = ref(false);
 const newCourseTitle = ref("");
 const newCourseDesc = ref("");
@@ -138,6 +155,9 @@ async function createCourse() {
           </p>
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
+          <button v-if="me && me.role === 'teacher'" class="btn btn-primary" style="background:#10b981; border-color:#10b981;" @click="showInviteModal = true">
+            生成邀请码
+          </button>
           <button v-if="me && me.role === 'teacher'" class="btn btn-primary" @click="showCreateModal = true">
             + 创建新课程
           </button>
@@ -150,6 +170,7 @@ async function createCourse() {
           <!-- [视图结构]: 已选课程卡片列表，主要渲染拥有已选状态的课程块 -->
           <article class="card" v-for="c in enrolledCourses" :key="c.id">
             <h3>{{ c.title }}</h3>
+            <small style="display:block; margin-bottom:8px; color:#666">授课教师: {{ c.teacher_name }}</small>
             <p>{{ c.description || "暂无简介" }}</p>
             <div class="actions">
               <button class="btn btn-primary" @click="openDetail(c.id)">进入课程</button>
@@ -165,6 +186,7 @@ async function createCourse() {
         <div class="grid">
           <article class="card" v-for="c in availableCourses" :key="c.id">
             <h3>{{ c.title }}</h3>
+            <small style="display:block; margin-bottom:8px; color:#666">授课教师: {{ c.teacher_name }}</small>
             <p>{{ c.description || "暂无简介" }}</p>
             <div class="actions">
               <button class="btn" @click="openDetail(c.id)">查看详情</button>
@@ -233,6 +255,7 @@ async function createCourse() {
       <div class="grid">
         <article class="card" v-for="c in courses" :key="c.id">
           <h3>{{ c.title }}</h3>
+          <small style="display:block; margin-bottom:8px; color:#666">授课教师: {{ c.teacher_name }}</small>
           <p>{{ c.description || "暂无简介" }}</p>
           <div class="actions">
             <button class="btn" @click="openDetail(c.id)">查看详情</button>
@@ -240,6 +263,24 @@ async function createCourse() {
         </article>
       </div>
     </section>
+
+    <!-- [视图结构]: 教师生成邀请码的悬浮表单 -->
+    <div v-if="showInviteModal" class="modal-mask" @click.self="showInviteModal = false">
+      <div class="modal-card">
+        <h3>生成教师邀请码</h3>
+        <p class="muted" style="margin-bottom: 16px;">请注意：新生成的邀请码 <strong style="color:#ef4444">仅 1 天内有效</strong>，请尽快发给对方注册使用。</p>
+        <div v-if="generatedCode" class="field">
+          <label>专属邀请码：</label>
+          <input :value="generatedCode" readonly style="background: #f1f5f9; color: #b91c1c; font-weight: bold; text-align: center; font-size: 18px; width: 100%; box-sizing: border-box;" />
+        </div>
+        <div class="actions" style="margin-top: 16px; justify-content: flex-end;">
+          <button class="btn" @click="showInviteModal = false">关闭</button>
+          <button v-if="!generatedCode" class="btn btn-primary" style="background:#10b981; border-color:#10b981;" @click="generateInvite" :disabled="isGenerating">
+            {{ isGenerating ? "生成中..." : "立即生成" }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- [视图结构]: 点击顶部的 "+ 创建新课程" 后展示的悬浮表单(老师专用) -->
     <div v-if="showCreateModal" class="modal-mask" @click.self="showCreateModal = false">
