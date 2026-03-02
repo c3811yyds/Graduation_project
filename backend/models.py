@@ -11,6 +11,8 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="student")  # student/teacher
     status = db.Column(db.String(20), nullable=False, default="active")
+    gender = db.Column(db.String(10), default="未知")
+    hobby = db.Column(db.String(255), default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

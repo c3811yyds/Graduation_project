@@ -15,6 +15,10 @@ function goHome() {
   router.push('/')
 }
 
+function goProfile() {
+  router.push('/profile')
+}
+
 function openLogin() {
   authMode.value = 'login'
   authVisible.value = true
@@ -70,8 +74,9 @@ onMounted(() => {
 
       <div class="right">
         <template v-if="me">
-          <span class="user">{{ me.username }}（{{ me.role }}）</span>
-          <button class="btn" @click="goDashboard">📊 数据总览</button>
+          <span class="user">{{ me.username }} ({{ me.role }})</span>
+          <button class="btn" @click="goProfile" style="margin-left:8px;">个人中心</button>
+          <button class="btn" @click="goDashboard" style="margin-left:8px;">数据总览</button>
           <button class="btn" @click="logout" style="margin-left:8px;">退出登录</button>
         </template>
         <template v-else>

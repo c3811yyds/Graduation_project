@@ -1,6 +1,6 @@
 -- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
--- Host: 127.0.0.1    Database: graduation_project
+-- Host: localhost    Database: graduation_project
 -- ------------------------------------------------------
 -- Server version	8.0.45
 
@@ -98,7 +98,7 @@ CREATE TABLE `enrollments` (
   KEY `ix_enrollments_course_id` (`course_id`),
   CONSTRAINT `enrollments_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`),
   CONSTRAINT `enrollments_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -107,7 +107,7 @@ CREATE TABLE `enrollments` (
 
 LOCK TABLES `enrollments` WRITE;
 /*!40000 ALTER TABLE `enrollments` DISABLE KEYS */;
-INSERT INTO `enrollments` VALUES (1,1,1,'dropped','2026-02-28 20:48:39'),(2,2,1,'dropped','2026-02-28 20:48:39'),(4,5,1,'enrolled','2026-02-28 17:02:23');
+INSERT INTO `enrollments` VALUES (1,1,1,'dropped','2026-02-28 20:48:39'),(2,2,1,'dropped','2026-02-28 20:48:39'),(4,5,1,'enrolled','2026-02-28 17:02:23'),(5,5,3,'enrolled','2026-03-02 10:23:05');
 /*!40000 ALTER TABLE `enrollments` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -226,7 +226,7 @@ CREATE TABLE `review_likes` (
   KEY `user_id` (`user_id`),
   CONSTRAINT `review_likes_ibfk_1` FOREIGN KEY (`review_id`) REFERENCES `reviews` (`id`) ON DELETE CASCADE,
   CONSTRAINT `review_likes_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -235,7 +235,7 @@ CREATE TABLE `review_likes` (
 
 LOCK TABLES `review_likes` WRITE;
 /*!40000 ALTER TABLE `review_likes` DISABLE KEYS */;
-INSERT INTO `review_likes` VALUES (1,1,2,'2026-03-01 07:25:52'),(3,1,1,'2026-03-01 07:26:05'),(5,1,6,'2026-03-02 07:35:06');
+INSERT INTO `review_likes` VALUES (1,1,2,'2026-03-01 07:25:52'),(3,1,1,'2026-03-01 07:26:05'),(6,1,6,'2026-03-02 10:22:42');
 /*!40000 ALTER TABLE `review_likes` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -320,6 +320,8 @@ CREATE TABLE `users` (
   `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
+  `gender` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT '未知',
+  `hobby` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `ix_users_username` (`username`),
   UNIQUE KEY `email` (`email`)
@@ -332,7 +334,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'stu2',NULL,'scrypt:32768:8:1$L2y3y5KQVGDUmzeR$cdeff6deb40ed5aa297f266bc440dd7c1fa2fffd22979aeaf4289c4579dfcfdaaff1a2cb2d1c58d98f2a672e09278c6a267b39bf4d98e56d589ee1c7bd2d20ab','student','active','2026-02-27 17:16:20','2026-02-27 17:16:20'),(2,'tea1',NULL,'scrypt:32768:8:1$ZdIPsaiiawhj48LK$2f7928360787b3365b1aa8ee0d2a0cc6b83f935a538dc0fa6d81569e192bfbf084c9256561fe5846a7e984d0a14839ae9b8e355e8ddeb66605aec3273b8b1090','teacher','active','2026-02-27 17:45:28','2026-02-27 17:45:28'),(3,'stu1',NULL,'scrypt:32768:8:1$5MoK2vcXRXciP562$b62ac89d937572f8c62dbdb828b9516c8f4770cd3b23bdc4e4e57c74d85401650172f0df40ff7f010ac3a4c7bc5be23a4274a69592d71b7ad5d57fdc1fe2967b','student','active','2026-02-28 12:32:35','2026-02-28 12:32:35'),(4,'stu3','3526712486@qq.com','scrypt:32768:8:1$2CNRSHK3YSVyCm9D$fb41330dab023ea989791e02fa96382d8180021b24d175c64992217e400757ed00818166fe5c843c1313a690c66cadbe7a651b6235f2fbd2dd35b77fe781ed33','student','active','2026-03-01 11:42:10','2026-03-01 11:42:10'),(6,'tea2','2696053735@qq.com','scrypt:32768:8:1$nE7L4QtwgB8HdIxf$6553b9edaa24b56b752947aeaa807d2467bc5c0907e904ec627de8a81f4936bbf4571fadc2c27e631ce3e5ba482be9add51a4bf788cd6ffc107b24e7fe0e0157','teacher','active','2026-03-02 06:53:02','2026-03-02 06:53:02');
+INSERT INTO `users` VALUES (1,'stu2',NULL,'scrypt:32768:8:1$L2y3y5KQVGDUmzeR$cdeff6deb40ed5aa297f266bc440dd7c1fa2fffd22979aeaf4289c4579dfcfdaaff1a2cb2d1c58d98f2a672e09278c6a267b39bf4d98e56d589ee1c7bd2d20ab','student','active','2026-02-27 17:16:20','2026-03-02 11:07:53','未知','nh'),(2,'tea1',NULL,'scrypt:32768:8:1$ZdIPsaiiawhj48LK$2f7928360787b3365b1aa8ee0d2a0cc6b83f935a538dc0fa6d81569e192bfbf084c9256561fe5846a7e984d0a14839ae9b8e355e8ddeb66605aec3273b8b1090','teacher','active','2026-02-27 17:45:28','2026-02-27 17:45:28','未知',''),(3,'stu1',NULL,'scrypt:32768:8:1$5MoK2vcXRXciP562$b62ac89d937572f8c62dbdb828b9516c8f4770cd3b23bdc4e4e57c74d85401650172f0df40ff7f010ac3a4c7bc5be23a4274a69592d71b7ad5d57fdc1fe2967b','student','active','2026-02-28 12:32:35','2026-02-28 12:32:35','未知',''),(4,'stu3','3526712486@qq.com','scrypt:32768:8:1$2CNRSHK3YSVyCm9D$fb41330dab023ea989791e02fa96382d8180021b24d175c64992217e400757ed00818166fe5c843c1313a690c66cadbe7a651b6235f2fbd2dd35b77fe781ed33','student','active','2026-03-01 11:42:10','2026-03-01 11:42:10','未知',''),(6,'tea2','2696053735@qq.com','scrypt:32768:8:1$nE7L4QtwgB8HdIxf$6553b9edaa24b56b752947aeaa807d2467bc5c0907e904ec627de8a81f4936bbf4571fadc2c27e631ce3e5ba482be9add51a4bf788cd6ffc107b24e7fe0e0157','teacher','active','2026-03-02 06:53:02','2026-03-02 06:53:02','未知','');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -372,4 +374,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-03-02 17:22:47
+-- Dump completed on 2026-03-02 19:16:10

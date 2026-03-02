@@ -349,7 +349,53 @@ def me():
     u = current_user()
     if not u:
         return err("token无效或用户不存在", status=401)
-    return ok({"id": u.id, "username": u.username, "role": u.role})
+    return ok({
+        "id": u.id, 
+        "username": u.username, 
+        "role": u.role,
+        "gender": getattr(u, 'gender', '未知'),
+        "hobby": getattr(u, 'hobby', '')
+    })
+
+@user_bp.patch("/me")
+@jwt_required()
+def update_profile():
+    u = current_user()
+    if not u:
+        return err("请求未授权", status=401)
+    
+    data = request.json or {}
+    new_username = data.get("username", "").strip()
+    new_gender = data.get("gender", "").strip()
+    new_hobby = data.get("hobby", "").strip()
+    
+    # 敏感词检查
+    sensitive_words = ["admin", "root", "system", "傻逼", "操", "妈的", "测试"]
+    if new_username:
+        for word in sensitive_words:
+            if word in new_username.lower():
+                return err(f"用户名包含敏感词汇：{word}", status=400)
+                
+        # 检查重名
+        if new_username != u.username:
+            exist = User.query.filter_by(username=new_username).first()
+            if exist:
+                return err("该名字已被其他用户使用", status=400)
+            u.username = new_username
+            
+    if "gender" in data:
+        u.gender = new_gender
+    if "hobby" in data:
+        u.hobby = new_hobby
+        
+    db.session.commit()
+    return ok({
+        "id": u.id, 
+        "username": u.username, 
+        "role": u.role,
+        "gender": u.gender,
+        "hobby": u.hobby
+    }, "个人资料更新成功")
 
 
 # ---------- courses ----------
