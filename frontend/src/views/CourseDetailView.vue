@@ -64,6 +64,39 @@
       </div>
     </header>
 
+    <!-- 剧场播放模式 (Theather Mode) -->
+    <section v-if="currentPlayingContent" class="panel theater-mode-panel" style="margin-top: 24px; padding: 24px; background: #1e293b; color: #fff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+          <span style="display: inline-block; padding: 4px 8px; background: #3b82f6; border-radius: 6px; font-size: 14px;">正在播放</span>
+          {{ currentPlayingContent.title }}
+        </h2>
+        <button class="btn" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);" @click="closePlayer">关闭播放器</button>
+      </div>
+      
+      <div class="player-container" style="background: #000; border-radius: 8px; overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 480px; max-height: 70vh;">
+        <!-- 视频/音频类 -->
+        <video v-if="['video', 'audio'].includes(currentPlayingContent.type) || currentPlayingUrl.match(/\.(mp4|webm|ogg|mp3|wav)$/i)" 
+               :src="currentPlayingUrl" 
+               controls 
+               autoplay 
+               controlsList="nodownload"
+               style="width: 100%; height: 100%; max-height: 70vh; outline: none;"></video>
+        
+        <!-- 文档/图片类 -->
+        <iframe v-else-if="['doc', 'image'].includes(currentPlayingContent.type) || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(currentPlayingContent.type)"
+                :src="currentPlayingUrl" 
+                style="width: 100%; height: 70vh; border: none; background: #fff;"></iframe>
+        
+        <!-- 其他不支持在线预览的格式 -->
+        <div v-else style="padding: 60px; color: #cbd5e1; text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 16px;">📁</div>
+          <p style="margin-bottom: 24px; font-size: 16px;">该文件格式暂不支持在线预览，请下载后使用本地应用查看。</p>
+          <button class="btn btn-primary" style="padding: 10px 24px; font-size: 16px;" @click="downloadContent(currentPlayingContent.id)">立即下载</button>
+        </div>
+      </div>
+    </section>
+
     <!-- 学生未选课提示 -->
     <section v-if="isStudent && !isEnrolled" class="panel warn">
       <h3>你尚未选修本课程</h3>
@@ -280,6 +313,9 @@ const showReviewModal = ref(false);
 const newMessage = ref("");
 const uploadFile = ref(null);
 const uploadTitle = ref("");
+
+const currentPlayingContent = ref(null);
+const currentPlayingUrl = ref("");
 
 const isStudent = computed(() => me.value?.role === "student");
 const isTeacher = computed(() => me.value?.role === "teacher");
@@ -559,7 +595,20 @@ async function uploadContent() {
       }
     } catch {}
     const t = token();
-    window.open(`/api/contents/${contentId}/file?token=${t}`, "_blank");
+    const target = contents.value.find(c => c.id === contentId);
+    if(target) {
+        currentPlayingContent.value = target;
+        currentPlayingUrl.value = `/api/contents/${contentId}/file?token=${t}`;
+        // 平滑滚动回顶部以便观看
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+        window.open(`/api/contents/${contentId}/file?token=${t}`, "_blank");
+    }
+  }
+
+  function closePlayer() {
+    currentPlayingContent.value = null;
+    currentPlayingUrl.value = "";
   }
 
   // [后端映射]: GET /api/contents/<id>/file -> 按资源 ID 流式下载实体资料文件
