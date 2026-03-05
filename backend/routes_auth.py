@@ -423,6 +423,24 @@ def list_courses():
     return ok([serialize_course(c, u) for c in courses])
 
 
+@course_bp.get("/<int:course_id>")
+@jwt_required(optional=True)
+def get_course(course_id):
+    uid = as_int(get_jwt_identity()) if get_jwt_identity() else None
+    u = User.query.get(uid) if uid else None
+
+    c = course_by_id(course_id)
+    if not c:
+        return err("课程不存在", status=404)
+
+    # 草稿课程仅课程所属教师本人可见
+    if c.status == "draft":
+        if not u or not (is_teacher(u) and c.teacher_id == u.id):
+            return err("无权限访问该课程", status=403)
+
+    return ok(serialize_course(c, u))
+
+
 # [前端对应]: 教师首页 (HomeView.vue) -> 右上角 "+ 创建新课程" 弹窗内确定按钮
 # [业务逻辑]: 构建状态初始默认为未发布的“草稿(draft)”状态课程元数据
 @course_bp.post("")
@@ -451,6 +469,40 @@ def create_course():
     db.session.add(c)
     db.session.commit()
     return ok(serialize_course(c, u), "创建成功", status=201)
+
+
+@course_bp.patch("/<int:course_id>")
+@jwt_required()
+def update_course(course_id):
+    u = current_user()
+    if not u:
+        return err("token无效或用户不存在", status=401)
+
+    c = course_by_id(course_id)
+    if not c:
+        return err("课程不存在", status=404)
+
+    if not (is_teacher(u) and c.teacher_id == u.id):
+        return err("无权限修改", status=403)
+
+    body = request.get_json(silent=True) or {}
+    has_title = "title" in body
+    has_desc = "description" in body
+    if not has_title and not has_desc:
+        return err("至少提交一个可修改字段(title/description)")
+
+    if has_title:
+        title = (body.get("title") or "").strip()
+        if not title:
+            return err("课程标题不能为空")
+        c.title = title
+
+    if has_desc:
+        c.description = (body.get("description") or "").strip()
+
+    c.updated_at = now()
+    db.session.commit()
+    return ok(serialize_course(c, u), "更新成功")
 
 
 # [前端对应]: 教师首页 (HomeView.vue) -> 针对单个未发课程点击 "发布课程" 按钮

@@ -18,6 +18,14 @@
       <div class="actions">
         <button class="btn" @click="goHome">返回首页</button>
 
+        <button
+          v-if="isTeacherOwner"
+          class="btn"
+          @click="openCourseEditModal"
+        >
+          编辑课程信息
+        </button>
+
         <button v-if="isStudent && isEnrolled" class="btn btn-outline" @click="showReviewModal = true" :disabled="hasReviewed">
           {{ hasReviewed ? "已评价" : "评价课程" }}
         </button>
@@ -257,6 +265,43 @@
       <p v-else class="muted">还没有任何人评价该课程。</p>
     </section>
 
+    <!-- 课程信息编辑弹窗 -->
+    <div v-if="showCourseEditModal" class="modal-overlay" @click.self="showCourseEditModal = false">
+      <div class="modal card course-edit-modal">
+        <header class="modal-header">
+          <h3>编辑课程信息</h3>
+          <button class="close-btn" @click="showCourseEditModal = false">×</button>
+        </header>
+        <div class="modal-body">
+          <div class="course-edit-grid">
+            <div class="course-edit-field">
+              <label>课程标题</label>
+              <input
+                v-model="editCourseTitle"
+                type="text"
+                placeholder="请输入课程标题"
+              />
+            </div>
+            <div class="course-edit-field">
+              <label>课程简介</label>
+              <textarea
+                v-model="editCourseDescription"
+                rows="5"
+                placeholder="请输入课程简介（可留空）"
+              />
+            </div>
+          </div>
+          <p class="muted" style="margin-top: 10px;">可单独修改标题或简介，未改动的字段不会提交。</p>
+        </div>
+        <div class="modal-actions" style="margin-top: 1rem; text-align:right; display:flex; justify-content:flex-end; gap:8px;">
+          <button class="btn" @click="showCourseEditModal = false">取消</button>
+          <button class="btn btn-primary" :disabled="isSavingCourseEdit" @click="submitCourseEdit">
+            {{ isSavingCourseEdit ? "保存中..." : "保存修改" }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 评价弹窗 -->
     <div v-if="showReviewModal" class="modal-overlay">
       <div class="modal card">
@@ -311,6 +356,10 @@ const reviews = ref([]);
 const newReviewRating = ref(5);
 const newReviewComment = ref("");
 const showReviewModal = ref(false);
+const showCourseEditModal = ref(false);
+const editCourseTitle = ref("");
+const editCourseDescription = ref("");
+const isSavingCourseEdit = ref(false);
 
 const newMessage = ref("");
 const uploadFile = ref(null);
@@ -369,11 +418,10 @@ async function loadMe() {
   }
 }
 
-// [后端映射]: GET /api/courses -> 如果本地暂缓了基本信息，直接做展示的兜底拿数据
-async function loadCourseFromList() {
-  const res = await http.get("/courses");
-  const list = res.data.data || [];
-  course.value = list.find((c) => Number(c.id) === courseId) || null;
+// [后端映射]: GET /api/courses/<id> -> 获取单课程详情
+async function loadCourseDetail() {
+  const res = await http.get(`/courses/${courseId}`);
+  course.value = res.data.data || null;
 }
 
 // [后端映射]: 组合请求获取特定课程资源 (GET /api/courses/<id>/contents) 和 弹幕区评论等消息互动数据
@@ -413,10 +461,54 @@ async function loadLearningData() {
 async function refreshPage() {
   try {
     await loadMe();
-    await loadCourseFromList();
+    await loadCourseDetail();
     await loadLearningData();
   } catch (e) {
     alert(e?.response?.data?.message || "加载失败");
+  }
+}
+
+function openCourseEditModal() {
+  if (!course.value || !isTeacherOwner.value) return;
+  editCourseTitle.value = course.value.title || "";
+  editCourseDescription.value = course.value.description || "";
+  showCourseEditModal.value = true;
+}
+
+// [后端映射]: PATCH /api/courses/<id> -> 教师修改课程标题与简介
+async function submitCourseEdit() {
+  if (!course.value || !isTeacherOwner.value) return;
+  const title = editCourseTitle.value.trim();
+  const description = editCourseDescription.value.trim();
+  const oldTitle = (course.value.title || "").trim();
+  const oldDescription = (course.value.description || "").trim();
+  const payload = {};
+
+  if (title !== oldTitle) {
+    if (!title) {
+      alert("课程标题不能为空");
+      return;
+    }
+    payload.title = title;
+  }
+  if (description !== oldDescription) {
+    payload.description = description;
+  }
+  if (!Object.keys(payload).length) {
+    showCourseEditModal.value = false;
+    return;
+  }
+
+  isSavingCourseEdit.value = true;
+  try {
+    await http.patch(`/courses/${courseId}`, payload);
+    await loadCourseDetail();
+    showCourseEditModal.value = false;
+    alert("课程信息已更新");
+  } catch (e) {
+    alert(e?.response?.data?.message || "更新失败");
+  } finally {
+    isSavingCourseEdit.value = false;
   }
 }
 
@@ -489,7 +581,7 @@ async function submitReview() {
     newReviewComment.value = "";
     newReviewRating.value = 5;
     // reload data to see the new review
-    await loadCourseFromList();
+    await loadCourseDetail();
     await loadLearningData();
   } catch (e) {
     alert(e?.response?.data?.message || "评价失败");
@@ -873,6 +965,36 @@ onMounted(refreshPage);
   position: relative;
   background: white;
 }
+.course-edit-modal {
+  max-width: 900px;
+}
+.course-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.course-edit-field label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.course-edit-field input,
+.course-edit-field textarea {
+  width: 100%;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  outline: none;
+}
+.course-edit-field textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+.course-edit-field input:focus,
+.course-edit-field textarea:focus {
+  border-color: var(--primary);
+}
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -894,5 +1016,10 @@ onMounted(refreshPage);
 }
 .close-btn:hover {
   color: var(--text);
+}
+@media (max-width: 768px) {
+  .course-edit-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
