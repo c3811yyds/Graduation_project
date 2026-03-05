@@ -1,6 +1,4 @@
 # 使用 docker-compose 统一编排前端、后端及数据库
-version: '3.8'
-
 services:
   # ------ 前端服务 ------
   frontend:
