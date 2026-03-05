@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from functools import lru_cache
 import os
 import uuid
 import random
@@ -179,6 +180,74 @@ def allowed_ext(filename: str):
     return ext in allowed
 
 
+DEFAULT_SENSITIVE_WORDS = {
+    "admin", "root", "system", "管理员", "官方", "客服",
+    "傻逼", "操", "妈的", "废物", "垃圾", "弱智",
+    "抗议", "示威", "革命", "政变", "分裂", "颠覆", "暴动",
+    "性", "色情", "淫秽", "约炮", "裸聊", "黄片", "黄色网站", "援交",
+    "攻击", "冲突", "战争", "屠杀", "爆炸", "枪击", "刺杀", "恐袭",
+    "毒品", "赌博", "非法交易", "贩毒", "洗钱", "诈骗", "走私", "黑市",
+    "歧视", "虚假宣传", "夸大效果", "造谣", "仇恨言论", "传销", "测试",
+}
+
+
+def _candidate_sensitive_lexicon_dirs() -> list[Path]:
+    custom_dir = (os.getenv("SENSITIVE_LEXICON_DIR") or "").strip()
+    this_file = Path(__file__).resolve()
+    candidates = []
+
+    if custom_dir:
+        candidates.append(Path(custom_dir))
+
+    # 本地开发：仓库根目录/third_party/Sensitive-lexicon/Vocabulary
+    candidates.append(this_file.parent.parent / "third_party" / "Sensitive-lexicon" / "Vocabulary")
+    # 兼容将词库直接放到 backend 目录下的场景
+    candidates.append(this_file.parent / "third_party" / "Sensitive-lexicon" / "Vocabulary")
+    return candidates
+
+
+def _read_text_with_fallback_encodings(path: Path):
+    for enc in ("utf-8", "utf-8-sig", "gb18030", "gbk"):
+        try:
+            return path.read_text(encoding=enc)
+        except UnicodeDecodeError:
+            continue
+        except Exception:
+            return None
+    return None
+
+
+@lru_cache(maxsize=1)
+def load_sensitive_words() -> tuple[str, ...]:
+    words = {w.lower() for w in DEFAULT_SENSITIVE_WORDS}
+
+    for base_dir in _candidate_sensitive_lexicon_dirs():
+        if not base_dir.exists() or not base_dir.is_dir():
+            continue
+        for txt_file in base_dir.glob("*.txt"):
+            text = _read_text_with_fallback_encodings(txt_file)
+            if not text:
+                continue
+            for raw in text.splitlines():
+                word = raw.strip().lstrip("\ufeff")
+                if not word or word.startswith("#"):
+                    continue
+                words.add(word.lower())
+
+    # 长词优先，提升命中稳定性
+    return tuple(sorted(words, key=len, reverse=True))
+
+
+def find_sensitive_word(text: str):
+    lowered = (text or "").strip().lower()
+    if not lowered:
+        return None
+    for word in load_sensitive_words():
+        if word and word in lowered:
+            return word
+    return None
+
+
 # ---------- auth ----------
 
 def send_email_code(email: str, code: str):
@@ -217,6 +286,8 @@ def send_email_code(email: str, code: str):
         print("发送邮件失败:", e)
         return False
 
+# [前端对应]: 登录注册弹窗 (AuthModal.vue) -> 点击“发送验证码”
+# [业务逻辑]: 生成并保存邮箱验证码，写入过期时间并尝试发送邮件
 @auth_bp.post("/send-code")
 def send_code():
     body = request.get_json(silent=True) or {}
@@ -307,6 +378,8 @@ def register():
     return ok({"id": u.id, "username": u.username, "role": u.role}, "注册成功", status=201)
 
 
+# [前端对应]: 教师端邀请码管理入口 -> 生成邀请码按钮
+# [业务逻辑]: 教师生成 1 天有效期的邀请码并入库，供教师注册校验使用
 @auth_bp.post("/generate-invite")
 @jwt_required()
 def generate_invite():
@@ -357,6 +430,8 @@ def me():
         "hobby": getattr(u, 'hobby', '')
     })
 
+# [前端对应]: 个人中心 (ProfileView/AuthModal) -> 编辑个人资料并保存
+# [业务逻辑]: 更新当前登录用户的用户名/性别/爱好，并进行用户名校验
 @user_bp.patch("/me")
 @jwt_required()
 def update_profile():
@@ -369,12 +444,11 @@ def update_profile():
     new_gender = data.get("gender", "").strip()
     new_hobby = data.get("hobby", "").strip()
     
-    # 敏感词检查
-    sensitive_words = ["admin", "root", "system", "傻逼", "操", "妈的", "测试"]
+    # 敏感词检查（优先读取 third_party/Sensitive-lexicon 词库，缺失时回退内置词表）
     if new_username:
-        for word in sensitive_words:
-            if word in new_username.lower():
-                return err(f"用户名包含敏感词汇：{word}", status=400)
+        hit_word = find_sensitive_word(new_username)
+        if hit_word:
+            return err(f"用户名包含敏感词汇：{hit_word}", status=400)
                 
         # 检查重名
         if new_username != u.username:
@@ -423,6 +497,8 @@ def list_courses():
     return ok([serialize_course(c, u) for c in courses])
 
 
+# [前端对应]: 课程详情页 (CourseDetailView.vue) -> 进入页面按课程 id 拉取详情
+# [业务逻辑]: 返回单课程详情，草稿课程仅所属教师可访问
 @course_bp.get("/<int:course_id>")
 @jwt_required(optional=True)
 def get_course(course_id):
@@ -471,6 +547,8 @@ def create_course():
     return ok(serialize_course(c, u), "创建成功", status=201)
 
 
+# [前端对应]: 课程详情页教师编辑弹窗 -> 保存课程标题/简介
+# [业务逻辑]: 仅课程所属教师可更新课程基础信息并刷新 updated_at
 @course_bp.patch("/<int:course_id>")
 @jwt_required()
 def update_course(course_id):
@@ -762,8 +840,29 @@ def list_course_contents(course_id):
     return ok([serialize_content(x) for x in rows])
 
 
+# [前端对应]: 课程详情页按课件 id 获取单条内容详情
+# [业务逻辑]: 单条内容查询，沿用 can_view_content 的草稿/发布可见性规则
+@content_bp.get("/<int:content_id>")
+@jwt_required(optional=True)
+def get_content(content_id):
+    u = current_user()
+
+    item = Content.query.get(content_id)
+    if not item:
+        return err("内容不存在", status=404)
+
+    c = course_by_id(item.course_id)
+    if not c:
+        return err("课程不存在", status=404)
+
+    if not can_view_content(u, c):
+        return err("非公开内容无法未授权预览", status=403)
+
+    return ok(serialize_content(item))
+
+
 # [前端对应]: 课程详情页 (CourseDetailView.vue) -> 教师切到这页的 "上传内容/课件" 选择文件提交
-# [业务逻辑]: 对物理二进制件进行本地托管落地并生成唯一的链接追踪存入 SQL 存根
+# [业务逻辑]: 对物理二进制文件进行本地托管落地并生成唯一链接，写入 contents 记录
 @course_bp.post("/<int:course_id>/contents/upload")
 @jwt_required()
 def upload_course_content(course_id):

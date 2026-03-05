@@ -1,0 +1,3 @@
+[submodule "third_party/Sensitive-lexicon"]
+	path = third_party/Sensitive-lexicon
+	url = https://github.com/Konsheng/Sensitive-lexicon.git

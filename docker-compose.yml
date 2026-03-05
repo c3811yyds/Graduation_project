@@ -16,8 +16,8 @@ services:
   # ------ 后端服务 ------
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "5000:5000"    # 宿主机5000端口映射到容器5000端口
     # 使用独立的 env_file 更安全、更优雅

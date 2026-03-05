@@ -290,12 +290,12 @@ npm run dev
 
 ### 【课件内容模块】
 - `GET /api/courses/<id>/contents` : 内容列表
+- `GET /api/contents/<id>` : 获取单个课件详情
 - `POST /api/courses/<id>/contents/upload` : 上传课件（FormData: `file`, `title`）
 - `PUT /api/contents/<id>` : 重命名修改某个课件名称
 - `DELETE /api/contents/<id>` : 删除课件
 - `POST /api/contents/<id>/view` : 记录学习进度（学生观看打点）
 - `GET /api/contents/<id>/file` : 访问/下载课件文件（支持 `token` 查询参数）
-- 注：当前后端未实现 `GET /api/contents/<id>`。
 
 ### 【课程评价与交流模块】
 - `GET /api/courses/<id>/reviews` : 获取某门课的评论列表，按“点赞+时间”降序
