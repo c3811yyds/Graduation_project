@@ -259,10 +259,11 @@
    - 注：notes 当前仅与 users 关联，不与 courses 关联。
 
 六、接口清单（REST + JWT）
-  包含认证保护头 Authorization: Bearer <token>
+
+包含认证保护头 Authorization: Bearer {token}
 
   - 注：本节按当前后端蓝图实际路由整理（backend/app.py + routes_*.py）。
-  - 注：路径参数在 Flask 中是 <int:xxx>，文档统一简写为 <id>。
+  - 注：路径参数在 Flask 中是 {int:xxx}，文档统一简写为 {id}。
   - 注：当前路由实现文件为 routes_account.py（认证/用户）与 routes_course.py（课程/内容），routes_auth.py 为兼容导出入口。
 
 1. 【认证及用户】
@@ -282,43 +283,43 @@
 
 2. 【课程模块】
     - GET /api/courses : 获取已发布/自己的课程列表
-    - GET /api/courses/<id> : 获取单课程详情（已发布课程可见；草稿仅课程教师可见）
+    - GET /api/courses/{id} : 获取单课程详情（已发布课程可见；草稿仅课程教师可见）
     - POST /api/courses : 创建草稿课程
-    - PATCH /api/courses/<id> : 更新课程基础信息（标题/简介，仅课程教师）
-    - PUT /api/courses/<id>/publish : 发布课程
-    - PUT /api/courses/<id>/unpublish : 下架课程（回到 draft）
-    - DELETE /api/courses/<id> : 删除废弃课程
-    - GET /api/courses/<id>/students : 教师查看选课学生
+    - PATCH /api/courses/{id} : 更新课程基础信息（标题/简介，仅课程教师）
+    - PUT /api/courses/{id}/publish : 发布课程
+    - PUT /api/courses/{id}/unpublish : 下架课程（回到 draft）
+    - DELETE /api/courses/{id} : 删除废弃课程
+    - GET /api/courses/{id}/students : 教师查看选课学生
 
 3. 【选课/进度模块】
-    - POST /api/courses/<id>/enroll : 学生确认报名
-    - DELETE /api/courses/<id>/enroll : 学生退课
-    - GET /api/courses/<id>/progress : 学生查看课程进度
-    - 注：教师学生进度汇总由 GET /api/courses/<id>/students 返回（含每个学生 progress 字段）。
+    - POST /api/courses/{id}/enroll : 学生确认报名
+    - DELETE /api/courses/{id}/enroll : 学生退课
+    - GET /api/courses/{id}/progress : 学生查看课程进度
+    - 注：教师学生进度汇总由 GET /api/courses/{id}/students 返回（含每个学生 progress 字段）。
 
 4. 【课件内容模块】
-    - GET /api/courses/<id>/contents : 内容列表
-    - GET /api/contents/<id> : 获取单个课件详情
-    - POST /api/courses/<id>/contents/upload : 上传课件（FormData: file, title）
-    - PUT /api/contents/<id> : 重命名修改某个课件名称
-    - DELETE /api/contents/<id> : 删除课件
-    - POST /api/contents/<id>/view : 记录学习进度（学生观看打点）
-    - GET /api/contents/<id>/file : 访问/下载课件文件（支持 token 查询参数）
+    - GET /api/courses/{id}/contents : 内容列表
+    - GET /api/contents/{id} : 获取单个课件详情
+    - POST /api/courses/{id}/contents/upload : 上传课件（FormData: file, title）
+    - PUT /api/contents/{id} : 重命名修改某个课件名称
+    - DELETE /api/contents/{id} : 删除课件
+    - POST /api/contents/{id}/view : 记录学习进度（学生观看打点）
+    - GET /api/contents/{id}/file : 访问/下载课件文件（支持 token 查询参数）
 
 5. 【课程评价与交流模块】
-    - GET /api/courses/<course_id>/reviews : 获取某门课的评论列表，按“点赞+时间”降序
-    - POST /api/courses/<course_id>/reviews : 提交课程打分与评价
-    - POST /api/courses/<course_id>/reviews/<review_id>/like : 切换点赞状态
-    - PUT /api/courses/<course_id>/reviews/<review_id>/reply : 授课教师填写官方回复
-    - DELETE /api/courses/<course_id>/reviews/<review_id> : 移除评论
-    - GET /api/courses/<course_id>/messages : 课程留言列表
-    - POST /api/courses/<course_id>/messages : 发送留言
+    - GET /api/courses/{course_id}/reviews : 获取某门课的评论列表，按“点赞+时间”降序
+    - POST /api/courses/{course_id}/reviews : 提交课程打分与评价
+    - POST /api/courses/{course_id}/reviews/{review_id}/like : 切换点赞状态
+    - PUT /api/courses/{course_id}/reviews/{review_id}/reply : 授课教师填写官方回复
+    - DELETE /api/courses/{course_id}/reviews/{review_id} : 移除评论
+    - GET /api/courses/{course_id}/messages : 课程留言列表
+    - POST /api/courses/{course_id}/messages : 发送留言
 
 6. 【笔记模块】
     - GET /api/notes : 获取当前用户笔记列表
     - POST /api/notes : 新建笔记
-    - PUT /api/notes/<id> : 更新笔记
-    - DELETE /api/notes/<id> : 删除笔记
+    - PUT /api/notes/{id} : 更新笔记
+    - DELETE /api/notes/{id} : 删除笔记
 
 7. 【智能 AI 实训助手】
     - POST /api/ai/chat : 教师与学生的智能助教对话生成接口，接入大语言模型流式输出
