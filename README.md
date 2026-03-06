@@ -70,51 +70,50 @@
    请确保您的机器已经安装了 MySQL，并使用根目录提供的 .sql 文件导入数据库结构和初始数据：
 
    - (1) 登录 MySQL
-     mysql -u root -p
+     - mysql -u root -p
 
    - (2) 创建并选择数据库
-     CREATE DATABASE graduation_project DEFAULT CHARACTER SET utf8mb4;
-     USE graduation_project;
+     - CREATE DATABASE graduation_project DEFAULT CHARACTER SET utf8mb4;
+     - USE graduation_project;
 
    - (3) 导入数据（注意您的实际路径）
-     source /您的路径/database_seed.sql;
+     - source /您的路径/database_seed.sql;
 
    - (4) 进入后端目录
-     cd backend
+     - cd backend
 
    - (5) 创建并激活虚拟环境
-     python -m venv venv
-     Windows 命令提示符 (cmd): venv\Scripts\activate
-     Windows PowerShell: .\venv\Scripts\Activate.ps1
-     Mac/Linux: source venv/bin/activate
+     - python -m venv venv
+     - Windows 命令提示符 (cmd): venv\Scripts\activate
+     - Windows PowerShell: .\venv\Scripts\Activate.ps1
+     - Mac/Linux: source venv/bin/activate
 
    - (6) 安装依赖
-     pip install -r requirements.txt
+     - pip install -r requirements.txt
 
    - (7) 配置环境变量
-     复制示例环境变量文件，并按需修改：
-     cp env.example .env
-
-     【.env 必填修改项提醒】:
-     SECRET_KEY=填入你的Flask密钥
-     JWT_SECRET_KEY=填入你的JWT密钥
-     DATABASE_URL=mysql+pymysql://你的账号:你的密码@127.0.0.1:3306/graduation_project?charset=utf8mb4
-     SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
-     MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD=填入你的发信邮箱配置(用于发送注册验证码)
+     - 复制示例环境变量文件，并按需修改：
+     - cp env.example .env
+     - 【.env 必填修改项提醒】:
+     - SECRET_KEY=填入你的Flask密钥
+     - JWT_SECRET_KEY=填入你的JWT密钥
+     - DATABASE_URL=mysql+pymysql://你的账号:你的密码@127.0.0.1:3306/graduation_project?charset=utf8mb4
+     - SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
+     - MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD=填入你的发信邮箱配置(用于发送注册验证码)
 
    - (8) 运行服务 (默认监听在 5000 端口)
-     python app.py
+     - python app.py
 
 
 3. 前端运行 (Vue 3)
    - (1) 新开一个终端并进入前端目录
-     cd frontend
+     - cd frontend
 
    - (2) 安装模块（首次运行）
-     npm install
+     - npm install
 
    - (3) 启动服务 (默认监听在 5173 端口)
-     npm run dev
+     - npm run dev
 
 
    打开浏览器访问 http://localhost:5173 即可开始体验！
@@ -158,96 +157,96 @@
   注：若后续你新增字段/索引，请同步更新这里，避免文档与代码漂移。
 
 1. Table 1: users (用户表)
-   - id (PK)  （主键，用户唯一标识）
-   - username (唯一)  （用户名/昵称字段，系统内不可重复）
-   - email (唯一)  （邮箱字段，用于登录与验证码接收，系统内不可重复）
-   - password_hash（密码哈希值，存储加密结果而非明文密码）
-   - role (student/teacher)  （角色字段，决定用户权限范围）
-   - status (当前使用 active)  （账号状态字段，用于标记账号是否可用）
-   - 其他信息: gender, hobby, created_at, updated_at（gender 为性别，hobby 为爱好，created_at 为创建时间，updated_at 为更新时间）
+    - id (PK)  （主键，用户唯一标识）
+    - username (唯一)  （用户名/昵称字段，系统内不可重复）
+    - email (唯一)  （邮箱字段，用于登录与验证码接收，系统内不可重复）
+    - password_hash（密码哈希值，存储加密结果而非明文密码）
+    - role (student/teacher)  （角色字段，决定用户权限范围）
+    - status (当前使用 active)  （账号状态字段，用于标记账号是否可用）
+    - 其他信息: gender, hobby, created_at, updated_at（gender 为性别，hobby 为爱好，created_at 为创建时间，updated_at 为更新时间）
 
 2. Table 2: courses (课程表)
-   - id (PK)  （主键，课程唯一标识）
-   - title, description（title 为课程标题，description 为课程简介）
-   - teacher_id (FK -> users.id)  （外键，指向课程所属教师用户）
-   - status (draft/published)  （课程状态，draft 为草稿，published 为已发布）
-   - created_at, updated_at（created_at 为创建时间，updated_at 为最后更新时间）
-   - 注：当前后端没有 archived 状态流转接口。
+    - id (PK)  （主键，课程唯一标识）
+    - title, description（title 为课程标题，description 为课程简介）
+    - teacher_id (FK -> users.id)  （外键，指向课程所属教师用户）
+    - status (draft/published)  （课程状态，draft 为草稿，published 为已发布）
+    - created_at, updated_at（created_at 为创建时间，updated_at 为最后更新时间）
+    - 注：当前后端没有 archived 状态流转接口。
 
 3. Table 3: enrollments (选课表)
-   - id (PK)  （主键，选课记录唯一标识）
-   - course_id (FK -> courses.id)  （外键，指向被选课程）
-   - student_id (FK -> users.id)  （外键，指向选课学生）
-   - status (enrolled/dropped)  （选课状态，enrolled 为已选，dropped 为已退）
-   - enrolled_at（选课时间）
-   - 约束：(course_id, student_id) 联合唯一
+    - id (PK)  （主键，选课记录唯一标识）
+    - course_id (FK -> courses.id)  （外键，指向被选课程）
+    - student_id (FK -> users.id)  （外键，指向选课学生）
+    - status (enrolled/dropped)  （选课状态，enrolled 为已选，dropped 为已退）
+    - enrolled_at（选课时间）
+    - 约束：(course_id, student_id) 联合唯一
 
 4. Table 4: contents (课件内容表)
-   - id (PK)  （主键，课件记录唯一标识）
-   - course_id (FK -> courses.id)  （外键，指向所属课程）
-   - title (智能命名的课件名)  （课件展示名称）
-   - type (video/audio/image/pdf/doc/...，按扩展名映射)  （课件类型字段，用于前端选择预览方式）
-   - url_or_path (静态服务器文件标识)  （文件访问路径或外部资源地址）
-   - duration_seconds (视频可用)  （视频/音频时长，单位秒）
-   - size_bytes（文件大小，单位字节）
-   - created_at（课件上传时间）
+    - id (PK)  （主键，课件记录唯一标识）
+    - course_id (FK -> courses.id)  （外键，指向所属课程）
+    - title (智能命名的课件名)  （课件展示名称）
+    - type (video/audio/image/pdf/doc/...，按扩展名映射)  （课件类型字段，用于前端选择预览方式）
+    - url_or_path (静态服务器文件标识)  （文件访问路径或外部资源地址）
+    - duration_seconds (视频可用)  （视频/音频时长，单位秒）
+    - size_bytes（文件大小，单位字节）
+    - created_at（课件上传时间）
 
 5. Table 5: progress (学习进度记录表)
-   - id (PK)  （主键，进度记录唯一标识）
-   - content_id (FK -> contents.id)  （外键，指向具体课件）
-   - student_id (FK -> users.id)  （外键，指向学习该课件的学生）
-   - progress_percent (0-100)  （学习进度百分比）
-   - status (not_started/in_progress/completed)  （进度状态：未开始/进行中/已完成）
-   - last_viewed_at, completed_at（last_viewed_at 为最近学习时间，completed_at 为完成时间）
+    - id (PK)  （主键，进度记录唯一标识）
+    - content_id (FK -> contents.id)  （外键，指向具体课件）
+    - student_id (FK -> users.id)  （外键，指向学习该课件的学生）
+    - progress_percent (0-100)  （学习进度百分比）
+    - status (not_started/in_progress/completed)  （进度状态：未开始/进行中/已完成）
+    - last_viewed_at, completed_at（last_viewed_at 为最近学习时间，completed_at 为完成时间）
 
 6. Table 6: reviews (课程评价表)
-   - id (PK)  （主键，评价记录唯一标识）
-   - course_id (FK -> courses.id)  （外键，指向被评价课程）
-   - user_id (FK -> users.id)  （外键，指向评价发起用户）
-   - rating (1-5星), comment (文字评价)  （rating 为评分，comment 为评价内容）
-   - reply_content (教师回复内容), reply_time（reply_content 为教师回复，reply_time 为回复时间）
-   - likes_count (累计获赞总数)  （该评价的总点赞数）
+    - id (PK)  （主键，评价记录唯一标识）
+    - course_id (FK -> courses.id)  （外键，指向被评价课程）
+    - user_id (FK -> users.id)  （外键，指向评价发起用户）
+    - rating (1-5星), comment (文字评价)  （rating 为评分，comment 为评价内容）
+    - reply_content (教师回复内容), reply_time（reply_content 为教师回复，reply_time 为回复时间）
+    - likes_count (累计获赞总数)  （该评价的总点赞数）
 
 7. Table 7: review_likes (评价点赞连接表)
-   - id (PK)  （主键，点赞记录唯一标识）
-   - review_id (FK -> reviews.id)  （外键，指向被点赞评价）
-   - user_id (FK -> users.id)  （外键，指向点赞用户）
-   - created_at（点赞时间）
-   - 拥有联合唯一约束防止重复点赞
+    - id (PK)  （主键，点赞记录唯一标识）
+    - review_id (FK -> reviews.id)  （外键，指向被点赞评价）
+    - user_id (FK -> users.id)  （外键，指向点赞用户）
+    - created_at（点赞时间）
+    - 拥有联合唯一约束防止重复点赞
 
 8. Table 8: messages (留言交流表)
-   - id (PK)  （主键，留言记录唯一标识）
-   - course_id (FK -> courses.id)  （外键，指向所属课程）
-   - sender_id (FK -> users.id)  （外键，指向发送方用户）
-   - receiver_id (FK -> users.id, 可选)  （外键，指向接收方用户，可为空）
-   - content（留言正文内容）
-   - created_at（留言创建时间）
+    - id (PK)  （主键，留言记录唯一标识）
+    - course_id (FK -> courses.id)  （外键，指向所属课程）
+    - sender_id (FK -> users.id)  （外键，指向发送方用户）
+    - receiver_id (FK -> users.id, 可选)  （外键，指向接收方用户，可为空）
+    - content（留言正文内容）
+    - created_at（留言创建时间）
 
 9. Table 9: notes (随堂笔记表)
-   - id (PK)  （主键，笔记记录唯一标识）
-   - user_id (FK -> users.id)  （外键，指向笔记所属用户）
-   - title（笔记标题）
-   - content (长文本格式笔记内容)  （笔记正文内容，支持较长文本）
-   - created_at, updated_at（created_at 为创建时间，updated_at 为更新时间）
-   - 注：当前实现是“用户个人笔记”，不绑定 course_id。
+    - id (PK)  （主键，笔记记录唯一标识）
+    - user_id (FK -> users.id)  （外键，指向笔记所属用户）
+    - title（笔记标题）
+    - content (长文本格式笔记内容)  （笔记正文内容，支持较长文本）
+    - created_at, updated_at（created_at 为创建时间，updated_at 为更新时间）
+    - 注：当前实现是“用户个人笔记”，不绑定 course_id。
 
 10. Table 10: verify_codes (邮箱验证码表)
-   - id (PK)  （主键，验证码记录唯一标识）
-   - email (目标邮箱)  （验证码发送目标邮箱）
-   - code (验证码)  （一次性验证码内容）
-   - expires_at（验证码过期时间）
-   - 用途：注册验证码、忘记密码验证码、个人中心改密验证码
-   - 注：当前表中没有 created_at 字段，验证码过期/冷却由业务层按 expires_at 控制。
+    - id (PK)  （主键，验证码记录唯一标识）
+    - email (目标邮箱)  （验证码发送目标邮箱）
+    - code (验证码)  （一次性验证码内容）
+    - expires_at（验证码过期时间）
+    - 用途：注册验证码、忘记密码验证码、个人中心改密验证码
+    - 注：当前表中没有 created_at 字段，验证码过期/冷却由业务层按 expires_at 控制。
 
 11. Table 11: teacher_invite_codes (教师邀请码表)
-   - id (PK)  （主键，邀请码记录唯一标识）
-   - code (系统分配的邀请码)  （教师注册使用的邀请码字符串）
-   - is_used (布尔值：是否已使用)  （邀请码是否已被使用）
-   - expires_at（邀请码过期时间）
-   - used_by_id (FK -> users.id, 绑定的用户)  （外键，指向实际使用该邀请码的用户）
-   - 注：当前表中没有 created_at、used_at 字段。
+    - id (PK)  （主键，邀请码记录唯一标识）
+    - code (系统分配的邀请码)  （教师注册使用的邀请码字符串）
+    - is_used (布尔值：是否已使用)  （邀请码是否已被使用）
+    - expires_at（邀请码过期时间）
+    - used_by_id (FK -> users.id, 绑定的用户)  （外键，指向实际使用该邀请码的用户）
+    - 注：当前表中没有 created_at、used_at 字段。
 
-1. 关系说明
+关系说明
    - users(teacher) 1-N courses
    - users(student) M-N courses (通过 enrollments 桥接)
    - courses 1-N contents
@@ -266,63 +265,63 @@
   - 注：当前路由实现文件为 routes_account.py（认证/用户）与 routes_course.py（课程/内容），routes_auth.py 为兼容导出入口。
 
 1. 【认证及用户】
-   - POST /api/auth/send-code : 发送邮箱验证码
-   - POST /api/auth/send-reset-code : 忘记密码发送验证码（已注册邮箱）
-   - POST /api/auth/reset-password : 忘记密码提交验证码并重置新密码
-   - POST /api/auth/register : 用户身份注册（需验证码，教师登录需系统邀请码）
-   - POST /api/auth/login : 用户认证换取 Token (前端清除 token 即退出)
-   - POST /api/auth/generate-invite : 教师生成带有1天有效期的邀请码
-   - GET /api/users/me : 获取当前凭证所有者信息
-   - PATCH /api/users/me : 更新个人资料
-   - POST /api/users/me/password-code : 已登录用户发送改密验证码
-   - PATCH /api/users/me/password : 已登录用户验证码改密
-   - GET /api/users/analytics : 获取数据大盘（学生/教师视角）
-   - GET /api/health : 健康检查
-   - 说明：密码找回/改密依赖用户邮箱；若历史账号 users.email 为空，需要先补邮箱后再使用验证码链路。
+    - POST /api/auth/send-code : 发送邮箱验证码
+    - POST /api/auth/send-reset-code : 忘记密码发送验证码（已注册邮箱）
+    - POST /api/auth/reset-password : 忘记密码提交验证码并重置新密码
+    - POST /api/auth/register : 用户身份注册（需验证码，教师登录需系统邀请码）
+    - POST /api/auth/login : 用户认证换取 Token (前端清除 token 即退出)
+    - POST /api/auth/generate-invite : 教师生成带有1天有效期的邀请码
+    - GET /api/users/me : 获取当前凭证所有者信息
+    - PATCH /api/users/me : 更新个人资料
+    - POST /api/users/me/password-code : 已登录用户发送改密验证码
+    - PATCH /api/users/me/password : 已登录用户验证码改密
+    - GET /api/users/analytics : 获取数据大盘（学生/教师视角）
+    - GET /api/health : 健康检查
+    - 说明：密码找回/改密依赖用户邮箱；若历史账号 users.email 为空，需要先补邮箱后再使用验证码链路。
 
 2. 【课程模块】
-   - GET /api/courses : 获取已发布/自己的课程列表
-   - GET /api/courses/<id> : 获取单课程详情（已发布课程可见；草稿仅课程教师可见）
-   - POST /api/courses : 创建草稿课程
-   - PATCH /api/courses/<id> : 更新课程基础信息（标题/简介，仅课程教师）
-   - PUT /api/courses/<id>/publish : 发布课程
-   - PUT /api/courses/<id>/unpublish : 下架课程（回到 draft）
-   - DELETE /api/courses/<id> : 删除废弃课程
-   - GET /api/courses/<id>/students : 教师查看选课学生
+    - GET /api/courses : 获取已发布/自己的课程列表
+    - GET /api/courses/<id> : 获取单课程详情（已发布课程可见；草稿仅课程教师可见）
+    - POST /api/courses : 创建草稿课程
+    - PATCH /api/courses/<id> : 更新课程基础信息（标题/简介，仅课程教师）
+    - PUT /api/courses/<id>/publish : 发布课程
+    - PUT /api/courses/<id>/unpublish : 下架课程（回到 draft）
+    - DELETE /api/courses/<id> : 删除废弃课程
+    - GET /api/courses/<id>/students : 教师查看选课学生
 
 3. 【选课/进度模块】
-   - POST /api/courses/<id>/enroll : 学生确认报名
-   - DELETE /api/courses/<id>/enroll : 学生退课
-   - GET /api/courses/<id>/progress : 学生查看课程进度
-   - 注：教师学生进度汇总由 GET /api/courses/<id>/students 返回（含每个学生 progress 字段）。
+    - POST /api/courses/<id>/enroll : 学生确认报名
+    - DELETE /api/courses/<id>/enroll : 学生退课
+    - GET /api/courses/<id>/progress : 学生查看课程进度
+    - 注：教师学生进度汇总由 GET /api/courses/<id>/students 返回（含每个学生 progress 字段）。
 
 4. 【课件内容模块】
-   - GET /api/courses/<id>/contents : 内容列表
-   - GET /api/contents/<id> : 获取单个课件详情
-   - POST /api/courses/<id>/contents/upload : 上传课件（FormData: file, title）
-   - PUT /api/contents/<id> : 重命名修改某个课件名称
-   - DELETE /api/contents/<id> : 删除课件
-   - POST /api/contents/<id>/view : 记录学习进度（学生观看打点）
-   - GET /api/contents/<id>/file : 访问/下载课件文件（支持 token 查询参数）
+    - GET /api/courses/<id>/contents : 内容列表
+    - GET /api/contents/<id> : 获取单个课件详情
+    - POST /api/courses/<id>/contents/upload : 上传课件（FormData: file, title）
+    - PUT /api/contents/<id> : 重命名修改某个课件名称
+    - DELETE /api/contents/<id> : 删除课件
+    - POST /api/contents/<id>/view : 记录学习进度（学生观看打点）
+    - GET /api/contents/<id>/file : 访问/下载课件文件（支持 token 查询参数）
 
 5. 【课程评价与交流模块】
-   - GET /api/courses/<course_id>/reviews : 获取某门课的评论列表，按“点赞+时间”降序
-   - POST /api/courses/<course_id>/reviews : 提交课程打分与评价
-   - POST /api/courses/<course_id>/reviews/<review_id>/like : 切换点赞状态
-   - PUT /api/courses/<course_id>/reviews/<review_id>/reply : 授课教师填写官方回复
-   - DELETE /api/courses/<course_id>/reviews/<review_id> : 移除评论
-   - GET /api/courses/<course_id>/messages : 课程留言列表
-   - POST /api/courses/<course_id>/messages : 发送留言
+    - GET /api/courses/<course_id>/reviews : 获取某门课的评论列表，按“点赞+时间”降序
+    - POST /api/courses/<course_id>/reviews : 提交课程打分与评价
+    - POST /api/courses/<course_id>/reviews/<review_id>/like : 切换点赞状态
+    - PUT /api/courses/<course_id>/reviews/<review_id>/reply : 授课教师填写官方回复
+    - DELETE /api/courses/<course_id>/reviews/<review_id> : 移除评论
+    - GET /api/courses/<course_id>/messages : 课程留言列表
+    - POST /api/courses/<course_id>/messages : 发送留言
 
 6. 【笔记模块】
-   - GET /api/notes : 获取当前用户笔记列表
-   - POST /api/notes : 新建笔记
-   - PUT /api/notes/<id> : 更新笔记
-   - DELETE /api/notes/<id> : 删除笔记
+    - GET /api/notes : 获取当前用户笔记列表
+    - POST /api/notes : 新建笔记
+    - PUT /api/notes/<id> : 更新笔记
+    - DELETE /api/notes/<id> : 删除笔记
 
 7. 【智能 AI 实训助手】
-   - POST /api/ai/chat : 教师与学生的智能助教对话生成接口，接入大语言模型流式输出
-   - 集成功能: 全局左侧栏滑动抽屉随时唤出，利用 SSE (Server-Sent Events) 打字机效果呈现思考过程
+    - POST /api/ai/chat : 教师与学生的智能助教对话生成接口，接入大语言模型流式输出
+    - 集成功能: 全局左侧栏滑动抽屉随时唤出，利用 SSE (Server-Sent Events) 打字机效果呈现思考过程
 
 七、系统流转与突破功能点总结
 
