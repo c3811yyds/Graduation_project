@@ -87,6 +87,7 @@
      - Windows 命令提示符 (cmd): venv\Scripts\activate
      - Windows PowerShell: .\venv\Scripts\Activate.ps1
      - Mac/Linux: source venv/bin/activate
+     - 说明：以上激活命令按你的系统环境三选一执行即可。
 
    - (6) 安装依赖
      - pip install -r requirements.txt
