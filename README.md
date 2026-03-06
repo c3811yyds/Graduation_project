@@ -1,330 +1,339 @@
-# 毕设 - 智能学习网站
+毕设 - 智能学习网站
 
-## 概述
+一、概述
 
-论文主题：基于 Flask 的智能学习网站用户管理模块设计与实现。
-技术栈：Flask + Vue 3 + MySQL 8.0，前后端分离，模块化设计。
+1. 论文主题：基于 Flask 的智能学习网站用户管理模块设计与实现。
 
-本系统旨在为高校师生提供一个互动性强、支持课程管理、课件上传、学习进度追踪及双向评价的在线学习平台。
+2. 技术栈：Flask + Vue 3 + MySQL 8.0，前后端分离，模块化设计。
 
-### 用户端核心功能
-- 个人资料管理：全新的个人中心界面，支持修改昵称（带黑名词敏感词过滤）、性别以及个人简介/爱好。
-- 课程列表与自主选课：课程大厅自主浏览、选课与退课。
-- 剧场模式播放：在课程详情页中央内嵌展开视频/音频/图片/文档（支持PDF/DOCX）预览，保护页面上下文。
-- 与教师留言交流：引入真实姓名显示机制。游客仅可浏览限制内容，必须登录才可查阅完整评论及进行点赞。
-- 在线随堂笔记：通过右侧边栏随时记录学习心得。
-- 查看总体进度：自动记录文档阅读/视频观看进度，在全局仪表盘生成学习情况统计。
+3. 系统定位：本系统旨在为高校师生提供一个互动性强、支持课程管理、课件上传、学习进度追踪及双向评价的在线学习平台。
 
-## 开发流程
+4. 用户端核心功能：
+  - 个人资料管理：全新的个人中心界面，支持修改昵称（含敏感词过滤）、性别以及个人简介/爱好。
+  - 密码管理：支持“忘记密码（登录页）”与“已登录修改密码（个人中心）”两条链路，均基于邮箱验证码。
+  - 课程列表与自主选课：课程大厅自主浏览、选课与退课。
+  - 剧场模式播放：在课程详情页中央内嵌展开视频/音频/图片/文档（支持PDF/DOCX）预览，保护页面上下文。
+  - 与教师留言交流：引入真实姓名显示机制。游客仅可浏览限制内容，必须登录才可查阅完整评论及进行点赞。
+  - 在线随堂笔记：通过右侧边栏随时记录学习心得。
+  - 查看总体进度：自动记录文档阅读/视频观看进度，在全局仪表盘生成学习情况统计。
+
+二、开发流程
 
 1. 需求与范围
-   - 明确用户角色（学生、教师）、核心功能与数据流。
-   - 编写用户故事与验收标准。
+  - 明确用户角色（学生、教师）、核心功能与数据流。
+  - 编写用户故事与验收标准。
 
 2. 系统设计
-   - 架构：REST API（Flask）+ SPA（Vue 3）+ MySQL 8.0。
-   - 模块：认证、用户信息、课程、内容（视频/文档）、进度、留言交流、随堂笔记、AI助教。
-   - 数据模型：用户、角色、验证码、教师邀请码、课程、选课、内容、进度、消息、笔记、评价点赞。
-   - 绘制 ER 图并规范化核心表。
-   - 为用户查询、课程查询、进度统计设置索引。
+  - 架构：REST API（Flask）+ SPA（Vue 3）+ MySQL 8.0。
+  - 模块：认证、用户信息、课程、内容（视频/文档）、进度、留言交流、随堂笔记、AI助教。
+  - 数据模型：用户、角色、验证码、教师邀请码、课程、选课、内容、进度、消息、笔记、评价点赞。
+  - 绘制 ER 图并规范化核心表。
+  - 为用户查询、课程查询、进度统计设置索引。
 
 3. 数据库设计
-   - 核心数据表采用级联及多对多关联设计。总共包含 11 张结构表。
-   - 执行 database_seed.sql 导入初始数据与表结构。
+  - 核心数据表采用级联及多对多关联设计。总共包含 11 张结构表。
+  - 执行 database_seed.sql 导入初始数据与表结构。
 
 4. 后端实现（Flask）
-   - 项目结构：应用工厂、蓝图按模块拆分、服务层、DAO/仓储层。
-   - 认证：JWT/Session、密码加密、基于角色的权限控制、邮箱验证码、独立的系统/教师邀请码流转体系。
-   - 接口：登录、注册、邀请码生成、课程列表、选课、内容上传、进度统计、留言交流、随堂笔记、大模型文本生成对话。
+  - 项目结构：应用工厂 + 蓝图按职责拆分（账号/用户、课程/内容、笔记、AI）。
+  - 认证：JWT/Session、密码加密、基于角色的权限控制、邮箱验证码、独立的系统/教师邀请码流转体系。
+  - 接口：登录、注册、邀请码生成、课程列表、选课、内容上传、进度统计、留言交流、随堂笔记、大模型文本生成对话。
 
 5. 前端实现（Vue 3）
-   - 基于角色的路由与布局（学生/教师）。
-   - 页面：登录、仪表盘、课程列表/详情、内容播放、上传、留言、侧边栏笔记、AI全局悬浮对话抽屉。
-   - 接口层：axios，状态管理（Pinia）。
+  - 基于角色的路由与布局（学生/教师）。
+  - 页面：登录、仪表盘、课程列表/详情、内容播放、上传、留言、侧边栏笔记、AI全局悬浮对话抽屉。
+  - 接口层：axios + SessionStorage（JWT 存储）。
 
 6. 联调
-   - CORS 配置、接口契约对齐、错误处理。
-   - 端到端流程：登录 -> 角色首页 -> 课程 -> 内容 -> 进度。
+  - CORS 配置、接口契约对齐、错误处理。
+  - 端到端流程：登录 -> 角色首页 -> 课程 -> 内容 -> 进度。
 
 7. 测试
-   - 后端：服务层单测、API 测试。
-   - 前端：关键页面组件测试。
-   - 集成测试：主流程验证。
+  - 后端：服务层单测、API 测试。
+  - 前端：关键页面组件测试。
+  - 集成测试：主流程验证。
 
 8. 部署
-   - 开发：本地 .env，Docker 可选。
-   - 生产：Nginx + Gunicorn + MySQL，打包 Vue 静态文件。
-   - 服务器完整部署详细步骤请专门参考：[Docker部署指南](./DEPLOY_DOCKER.md)
+  - 开发：本地 .env，Docker 可选。
+  - 生产：Nginx + Gunicorn + MySQL，打包 Vue 静态文件。
+  - 服务器完整部署详细步骤请专门参考：[Docker部署指南](./DEPLOY_DOCKER.md)
+  - 说明：当前版本更新不涉及数据库表结构变更，无需执行迁移脚本。
 
-## 快速开始
+三、快速开始
 
-### 1. 环境依赖
-- Python 3.11+
-- Node.js 18+ (推荐)
-- MySQL 8.0+
+1. 环境依赖
+  - Python 3.11+
+  - Node.js 18+ (推荐)
+  - MySQL 8.0+
 
-### 2. 后端运行 (Flask)
-请确保您的机器已经安装了 MySQL，并使用根目录提供的 .sql 文件导入数据库结构和初始数据：
+2. 后端运行 (Flask)
+  请确保您的机器已经安装了 MySQL，并使用根目录提供的 .sql 文件导入数据库结构和初始数据：
 
-```bash
-# 登录 MySQL
-mysql -u root -p
+  (1) 登录 MySQL
+    mysql -u root -p
 
-# 创建并选择数据库
-CREATE DATABASE graduation_project DEFAULT CHARACTER SET utf8mb4;
-USE graduation_project;
+  (2) 创建并选择数据库
+    CREATE DATABASE graduation_project DEFAULT CHARACTER SET utf8mb4;
+    USE graduation_project;
 
-# 导入数据（注意您的实际路径）
-source /您的路径/database_seed.sql;
-```
+  (3) 导入数据（注意您的实际路径）
+    source /您的路径/database_seed.sql;
 
-```bash
-cd backend
-# 1. 创建并激活虚拟环境
-python -m venv venv
-# Windows 命令提示符 (cmd): venv\Scripts\activate
-# Windows PowerShell: .\venv\Scripts\Activate.ps1
-# Mac/Linux: source venv/bin/activate
+  (4) 进入后端目录
+    cd backend
 
-# 2. 安装依赖
-pip install -r requirements.txt
+  (5) 创建并激活虚拟环境
+    python -m venv venv
+    Windows 命令提示符 (cmd): venv\Scripts\activate
+    Windows PowerShell: .\venv\Scripts\Activate.ps1
+    Mac/Linux: source venv/bin/activate
 
-# 3. 配置环境变量
-# 复制示例环境变量文件，并按需修改：
-cp env.example .env
+  (6) 安装依赖
+    pip install -r requirements.txt
 
-# 【.env 必填修改项提醒】:
-# SECRET_KEY=填入你的Flask密钥
-# JWT_SECRET_KEY=填入你的JWT密钥
-# DATABASE_URL=mysql+pymysql://你的账号:你的密码@127.0.0.1:3306/graduation_project?charset=utf8mb4
-# SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
-# MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD=填入你的发信邮箱配置(用于发送注册验证码)
+  (7) 配置环境变量
+    复制示例环境变量文件，并按需修改：
+    cp env.example .env
 
-# 4. 运行服务 (默认监听在 5000 端口)
-python app.py
-```
+    【.env 必填修改项提醒】:
+    SECRET_KEY=填入你的Flask密钥
+    JWT_SECRET_KEY=填入你的JWT密钥
+    DATABASE_URL=mysql+pymysql://你的账号:你的密码@127.0.0.1:3306/graduation_project?charset=utf8mb4
+    SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
+    MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD=填入你的发信邮箱配置(用于发送注册验证码)
 
-### 3. 前端运行 (Vue 3)
-新开一个终端：
+  (8) 运行服务 (默认监听在 5000 端口)
+    python app.py
 
-```bash
-cd frontend
-# 1. 安装模块（首次运行）
-npm install
 
-# 2. 启动服务 (默认监听在 5173 端口)
-npm run dev
-```
+3. 前端运行 (Vue 3)
+  (1) 新开一个终端并进入前端目录
+    cd frontend
 
-打开浏览器访问 `http://localhost:5173` 即可开始体验！
+  (2) 安装模块（首次运行）
+    npm install
 
-## 基础功能清单
+  (3) 启动服务 (默认监听在 5173 端口)
+    npm run dev
 
-### 认证模块
-- 登录/注册，学生/教师 角色分离
-- 引入邮箱验证码防刷机制
-- 引入独立的系统分配教师邀请码机制
-- 基于 SessionStorage 的跨 Tab 页独立登录环境机制
-- 登录/退出
-- 学生/教师角色区分
 
-### 学生端
-- 课程列表与自主选课
-- 观看视频、阅读文档
-- 与教师留言交流
-- 在线随堂笔记：通过右侧侧边栏随时记录学习心得。
-- 查看课程进度与完成度
-- 课程大厅自主选课与退课。
-- 播放在线视频、预览与下载教师下发教学文档。
-- 系统自动记录文档阅读/视频观看进度。
-- 课程互动机制：只能对已选课程发布评价一次，支持点赞老师或其他同学评价。
+  打开浏览器访问 http://localhost:5173 即可开始体验！
 
-### 教师端
-- 上传视频与文档
-- 留言回复
-- 管理选课学生
-- 查看观看情况与完成度统计
-- 从草稿箱创建课程、上架课程与下线保护功能。
-- 上传教学材料，支持系统智能重命名“第X讲”，亦支持手动单条重命名。
-- 实时掌控选课学生的名单与实际学习推进量。
-- 回复学生的课程评价，删除恶意评论。
+四、基础功能清单
 
-## 数据库表设计
-核心数据表采用级联及多对多关联设计。总共包含 11 张表。
+1. 认证模块
+  - 登录/注册，学生/教师 角色分离
+  - 引入邮箱验证码防刷机制（注册/找回/改密）
+  - 忘记密码：登录页通过邮箱验证码重置密码
+  - 已登录修改密码：个人中心通过邮箱验证码更新密码
+  - 密码验证码规则：2 分钟有效，60 秒发送冷却
+  - 引入独立的系统分配教师邀请码机制
+  - 基于 SessionStorage 的跨 Tab 页独立登录环境机制
 
-注：本节按当前 `database_seed.sql` 与 `backend/models.py` 实际字段整理。
-注：若后续你新增字段/索引，请同步更新这里，避免文档与代码漂移。
+2. 学生端
+  - 课程列表与自主选课
+  - 观看视频、阅读文档
+  - 与教师留言交流
+  - 在线随堂笔记：通过右侧侧边栏随时记录学习心得。
+  - 查看课程进度与完成度
+  - 课程大厅自主选课与退课。
+  - 播放在线视频、预览与下载教师下发教学文档。
+  - 系统自动记录文档阅读/视频观看进度。
+  - 课程互动机制：只能对已选课程发布评价一次，支持点赞老师或其他同学评价。
 
-### Table 1: `users` (用户表)
-- `id` (PK)
-- `username` (唯一)
-- `email` (唯一)
-- `password_hash`
-- `role` (student/teacher)
-- `status` (当前使用 active)
-- 其他信息: `gender`, `hobby`, `created_at`, `updated_at`
-- 注：当前表中没有 `phone` 字段。
+3. 教师端
+  - 上传视频与文档
+  - 留言回复
+  - 管理选课学生
+  - 查看观看情况与完成度统计
+  - 从草稿箱创建课程、上架课程与下线保护功能。
+  - 上传教学材料，支持系统智能重命名“第X讲”，亦支持手动单条重命名。
+  - 实时掌控选课学生的名单与实际学习推进量。
+  - 回复学生的课程评价，删除恶意评论。
 
-### Table 2: `courses` (课程表)
-- `id` (PK)
-- `title`, `description`
-- `teacher_id` (FK -> users.id)
-- `status` (draft/published)
-- `created_at`, `updated_at`
-- 注：当前后端没有 `archived` 状态流转接口。
+五、数据库表设计
+  核心数据表采用级联及多对多关联设计。总共包含 11 张表。
 
-### Table 3: `enrollments` (选课表)
-- `id` (PK)
-- `course_id` (FK -> courses.id)
-- `student_id` (FK -> users.id)
-- `status` (enrolled/dropped)
-- `enrolled_at`
-- 约束：`(course_id, student_id)` 联合唯一
+  注：本节按当前 database_seed.sql 与 backend/models.py 实际字段整理。
+  注：若后续你新增字段/索引，请同步更新这里，避免文档与代码漂移。
 
-### Table 4: `contents` (课件内容表)
-- `id` (PK)
-- `course_id` (FK -> courses.id)
-- `title` (智能命名的课件名)
-- `type` (video/audio/image/pdf/doc/...，按扩展名映射)
-- `url_or_path` (静态服务器文件标识)
-- `duration_seconds` (视频可用)
-- `size_bytes`
-- `created_at`
+Table 1: users (用户表)
+  - id (PK)
+  - username (唯一)
+  - email (唯一)
+  - password_hash
+  - role (student/teacher)
+  - status (当前使用 active)
+  - 其他信息: gender, hobby, created_at, updated_at
+  - 注：当前表中没有 phone 字段。
 
-### Table 5: `progress` (学习进度记录表)
-- `id` (PK)
-- `content_id` (FK -> contents.id)
-- `student_id` (FK -> users.id)
-- `progress_percent` (0-100)
-- `status` (not_started/in_progress/completed)
-- `last_viewed_at`, `completed_at`
+Table 2: courses (课程表)
+  - id (PK)
+  - title, description
+  - teacher_id (FK -> users.id)
+  - status (draft/published)
+  - created_at, updated_at
+  - 注：当前后端没有 archived 状态流转接口。
 
-### Table 6: `reviews` (课程评价表)
-- `id` (PK)
-- `course_id` (FK -> courses.id)
-- `user_id` (FK -> users.id)
-- `rating` (1-5星), `comment` (文字评价)
-- `reply_content` (教师回复内容), `reply_time`
-- `likes_count` (累计获赞总数)
+Table 3: enrollments (选课表)
+  - id (PK)
+  - course_id (FK -> courses.id)
+  - student_id (FK -> users.id)
+  - status (enrolled/dropped)
+  - enrolled_at
+  - 约束：(course_id, student_id) 联合唯一
 
-### Table 7: `review_likes` (评价点赞连接表)
-- `id` (PK)
-- `review_id` (FK -> reviews.id)
-- `user_id` (FK -> users.id)
-- `created_at`
-- 拥有联合唯一约束防止重复点赞
+Table 4: contents (课件内容表)
+  - id (PK)
+  - course_id (FK -> courses.id)
+  - title (智能命名的课件名)
+  - type (video/audio/image/pdf/doc/...，按扩展名映射)
+  - url_or_path (静态服务器文件标识)
+  - duration_seconds (视频可用)
+  - size_bytes
+  - created_at
 
-### Table 8: `messages` (留言交流表)
-- `id` (PK)
-- `course_id` (FK -> courses.id)
-- `sender_id` (FK -> users.id)
-- `receiver_id` (FK -> users.id, 可选)
-- `content`
-- `created_at`
+Table 5: progress (学习进度记录表)
+  - id (PK)
+  - content_id (FK -> contents.id)
+  - student_id (FK -> users.id)
+  - progress_percent (0-100)
+  - status (not_started/in_progress/completed)
+  - last_viewed_at, completed_at
 
-### Table 9: `notes` (随堂笔记表)
-- `id` (PK)
-- `user_id` (FK -> users.id)
-- `title`
-- `content` (长文本格式笔记内容)
-- `created_at`, `updated_at`
-- 注：当前实现是“用户个人笔记”，不绑定 `course_id`。
+Table 6: reviews (课程评价表)
+  - id (PK)
+  - course_id (FK -> courses.id)
+  - user_id (FK -> users.id)
+  - rating (1-5星), comment (文字评价)
+  - reply_content (教师回复内容), reply_time
+  - likes_count (累计获赞总数)
 
-### Table 10: `verify_codes` (邮箱验证码表)
-- `id` (PK)
-- `email` (目标邮箱)
-- `code` (验证码)
-- `expires_at`
-- 注：当前表中没有 `created_at` 字段。
+Table 7: review_likes (评价点赞连接表)
+  - id (PK)
+  - review_id (FK -> reviews.id)
+  - user_id (FK -> users.id)
+  - created_at
+  - 拥有联合唯一约束防止重复点赞
 
-### Table 11: `teacher_invite_codes` (教师邀请码表)
-- `id` (PK)
-- `code` (系统分配的邀请码)
-- `is_used` (布尔值：是否已使用)
-- `expires_at`
-- `used_by_id` (FK -> users.id, 绑定的用户)
-- 注：当前表中没有 `created_at`、`used_at` 字段。
+Table 8: messages (留言交流表)
+  - id (PK)
+  - course_id (FK -> courses.id)
+  - sender_id (FK -> users.id)
+  - receiver_id (FK -> users.id, 可选)
+  - content
+  - created_at
 
-### 关系说明
-*   users(teacher) `1-N` courses
-*   users(student) `M-N` courses (通过 `enrollments` 桥接)
-*   courses `1-N` contents
-*   contents `N-M` users(student) (通过 `progress`)
-*   courses `1-N` reviews
-*   users(student/teacher) `M-N` reviews (通过 `review_likes` 桥接)
-*   courses `1-N` messages
-*   users `1-N` notes
-- 注：`notes` 当前仅与 `users` 关联，不与 `courses` 关联。
+Table 9: notes (随堂笔记表)
+  - id (PK)
+  - user_id (FK -> users.id)
+  - title
+  - content (长文本格式笔记内容)
+  - created_at, updated_at
+  - 注：当前实现是“用户个人笔记”，不绑定 course_id。
 
-## 接口清单（REST + JWT）
-包含认证保护头 `Authorization: Bearer <token>`
+Table 10: verify_codes (邮箱验证码表)
+  - id (PK)
+  - email (目标邮箱)
+  - code (验证码)
+  - expires_at
+  - 用途：注册验证码、忘记密码验证码、个人中心改密验证码
+  - 注：当前表中没有 created_at 字段，验证码过期/冷却由业务层按 expires_at 控制。
 
-注：本节按当前后端蓝图实际路由整理（`backend/app.py` + `routes_*.py`）。
-注：路径参数在 Flask 中是 `<int:xxx>`，文档统一简写为 `<id>`。
+Table 11: teacher_invite_codes (教师邀请码表)
+  - id (PK)
+  - code (系统分配的邀请码)
+  - is_used (布尔值：是否已使用)
+  - expires_at
+  - used_by_id (FK -> users.id, 绑定的用户)
+  - 注：当前表中没有 created_at、used_at 字段。
 
-### 【认证及用户】
-- `POST /api/auth/send-code` : 发送邮箱验证码
-- `POST /api/auth/register` : 用户身份注册（需验证码，教师登录需系统邀请码）
-- `POST /api/auth/login` : 用户认证换取 Token (前端清除 token 即退出)
-- `POST /api/auth/generate-invite` : 教师生成带有1天有效期的邀请码
-- `GET /api/users/me` : 获取当前凭证所有者信息
-- `PATCH /api/users/me` : 更新个人资料
-- `GET /api/users/analytics` : 获取数据大盘（学生/教师视角）
-- `GET /api/health` : 健康检查
+1. 关系说明
+  - users(teacher) 1-N courses
+  - users(student) M-N courses (通过 enrollments 桥接)
+  - courses 1-N contents
+  - contents N-M users(student) (通过 progress)
+  - courses 1-N reviews
+  - users(student/teacher) M-N reviews (通过 review_likes 桥接)
+  - courses 1-N messages
+  - users 1-N notes
+  - 注：notes 当前仅与 users 关联，不与 courses 关联。
 
-### 【课程模块】
-- `GET /api/courses` : 获取已发布/自己的课程列表
-- `GET /api/courses/<id>` : 获取单课程详情（已发布课程可见；草稿仅课程教师可见）
-- `POST /api/courses` : 创建草稿课程
-- `PATCH /api/courses/<id>` : 更新课程基础信息（标题/简介，仅课程教师）
-- `PUT /api/courses/<id>/publish` : 发布课程
-- `PUT /api/courses/<id>/unpublish` : 下架课程（回到 draft）
-- `DELETE /api/courses/<id>` : 删除废弃课程
-- `GET /api/courses/<id>/students` : 教师查看选课学生
+六、接口清单（REST + JWT）
+  包含认证保护头 Authorization: Bearer <token>
 
-### 【选课/进度模块】
-- `POST /api/courses/<id>/enroll` : 学生确认报名
-- `DELETE /api/courses/<id>/enroll` : 学生退课
-- `GET /api/courses/<id>/progress` : 学生查看课程进度
-- 注：教师学生进度汇总由 `GET /api/courses/<id>/students` 返回（含每个学生 progress 字段）。
+  注：本节按当前后端蓝图实际路由整理（backend/app.py + routes_*.py）。
+  注：路径参数在 Flask 中是 <int:xxx>，文档统一简写为 <id>。
+  注：当前路由实现文件为 routes_account.py（认证/用户）与 routes_course.py（课程/内容），routes_auth.py 为兼容导出入口。
 
-### 【课件内容模块】
-- `GET /api/courses/<id>/contents` : 内容列表
-- `GET /api/contents/<id>` : 获取单个课件详情
-- `POST /api/courses/<id>/contents/upload` : 上传课件（FormData: `file`, `title`）
-- `PUT /api/contents/<id>` : 重命名修改某个课件名称
-- `DELETE /api/contents/<id>` : 删除课件
-- `POST /api/contents/<id>/view` : 记录学习进度（学生观看打点）
-- `GET /api/contents/<id>/file` : 访问/下载课件文件（支持 `token` 查询参数）
+1. 【认证及用户】
+  - POST /api/auth/send-code : 发送邮箱验证码
+  - POST /api/auth/send-reset-code : 忘记密码发送验证码（已注册邮箱）
+  - POST /api/auth/reset-password : 忘记密码提交验证码并重置新密码
+  - POST /api/auth/register : 用户身份注册（需验证码，教师登录需系统邀请码）
+  - POST /api/auth/login : 用户认证换取 Token (前端清除 token 即退出)
+  - POST /api/auth/generate-invite : 教师生成带有1天有效期的邀请码
+  - GET /api/users/me : 获取当前凭证所有者信息
+  - PATCH /api/users/me : 更新个人资料
+  - POST /api/users/me/password-code : 已登录用户发送改密验证码
+  - PATCH /api/users/me/password : 已登录用户验证码改密
+  - GET /api/users/analytics : 获取数据大盘（学生/教师视角）
+  - GET /api/health : 健康检查
+  - 说明：密码找回/改密依赖用户邮箱；若历史账号 users.email 为空，需要先补邮箱后再使用验证码链路。
 
-### 【课程评价与交流模块】
-- `GET /api/courses/<id>/reviews` : 获取某门课的评论列表，按“点赞+时间”降序
-- `POST /api/courses/<id>/reviews` : 提交课程打分与评价
-- `POST /api/courses/<id>/reviews/<id>/like` : 切换点赞状态
-- `PUT /api/courses/<id>/reviews/<id>/reply` : 授课教师填写官方回复
-- `DELETE /api/courses/<id>/reviews/<id>` : 移除评论
-- `GET /api/courses/<id>/messages` : 课程留言列表
-- `POST /api/courses/<id>/messages` : 发送留言
+2. 【课程模块】
+  - GET /api/courses : 获取已发布/自己的课程列表
+  - GET /api/courses/<id> : 获取单课程详情（已发布课程可见；草稿仅课程教师可见）
+  - POST /api/courses : 创建草稿课程
+  - PATCH /api/courses/<id> : 更新课程基础信息（标题/简介，仅课程教师）
+  - PUT /api/courses/<id>/publish : 发布课程
+  - PUT /api/courses/<id>/unpublish : 下架课程（回到 draft）
+  - DELETE /api/courses/<id> : 删除废弃课程
+  - GET /api/courses/<id>/students : 教师查看选课学生
 
-### 【笔记模块】
-- `GET /api/notes` : 获取当前用户笔记列表
-- `POST /api/notes` : 新建笔记
-- `PUT /api/notes/<id>` : 更新笔记
-- `DELETE /api/notes/<id>` : 删除笔记
-- 注：当前笔记接口不支持按 `course_id` 过滤。
+3. 【选课/进度模块】
+  - POST /api/courses/<id>/enroll : 学生确认报名
+  - DELETE /api/courses/<id>/enroll : 学生退课
+  - GET /api/courses/<id>/progress : 学生查看课程进度
+  - 注：教师学生进度汇总由 GET /api/courses/<id>/students 返回（含每个学生 progress 字段）。
 
-### 【智能 AI 实训助手】
-- `POST /api/ai/chat` : 教师与学生的智能助教对话生成接口，接入大语言模型流式输出
-- 集成功能: 全局左侧栏滑动抽屉随时唤出，利用 SSE (Server-Sent Events) 打字机效果呈现思考过程
+4. 【课件内容模块】
+  - GET /api/courses/<id>/contents : 内容列表
+  - GET /api/contents/<id> : 获取单个课件详情
+  - POST /api/courses/<id>/contents/upload : 上传课件（FormData: file, title）
+  - PUT /api/contents/<id> : 重命名修改某个课件名称
+  - DELETE /api/contents/<id> : 删除课件
+  - POST /api/contents/<id>/view : 记录学习进度（学生观看打点）
+  - GET /api/contents/<id>/file : 访问/下载课件文件（支持 token 查询参数）
 
-### 系统流转与突破功能点总结
+5. 【课程评价与交流模块】
+  - GET /api/courses/<course_id>/reviews : 获取某门课的评论列表，按“点赞+时间”降序
+  - POST /api/courses/<course_id>/reviews : 提交课程打分与评价
+  - POST /api/courses/<course_id>/reviews/<review_id>/like : 切换点赞状态
+  - PUT /api/courses/<course_id>/reviews/<review_id>/reply : 授课教师填写官方回复
+  - DELETE /api/courses/<course_id>/reviews/<review_id> : 移除评论
+  - GET /api/courses/<course_id>/messages : 课程留言列表
+  - POST /api/courses/<course_id>/messages : 发送留言
 
-本系统围绕“教与学”的双向闭环展开，提供了一站式的在线教育解决方案。除了基础的注册登录、建课与选课、播放视频及文档等常规操作以外，本毕设着重实现并打通了以下能力：
+6. 【笔记模块】
+  - GET /api/notes : 获取当前用户笔记列表
+  - POST /api/notes : 新建笔记
+  - PUT /api/notes/<id> : 更新笔记
+  - DELETE /api/notes/<id> : 删除笔记
+
+7. 【智能 AI 实训助手】
+  - POST /api/ai/chat : 教师与学生的智能助教对话生成接口，接入大语言模型流式输出
+  - 集成功能: 全局左侧栏滑动抽屉随时唤出，利用 SSE (Server-Sent Events) 打字机效果呈现思考过程
+
+七、系统流转与突破功能点总结
+
+  本系统围绕“教与学”的双向闭环展开，提供了一站式的在线教育解决方案。除了基础的注册登录、建课与选课、播放视频及文档等常规操作以外，本毕设着重实现并打通了以下能力：
 
 1. 防恶意注册与邀请机制（JWT / 密码 Hash）：配合邮箱验证码实现防刷，独创限时 1 天的教师邀请码裂变机制（定时失效策略）。
-2. 沉浸式笔记体验（Vue 3 / Markdown）：不需跳脱画面，学生观看时可随时唤出侧边栏，生成并保存属于该门课程的 Markdown 富文本笔记。
+2. 沉浸式笔记体验（Vue 3 全局侧边栏）：不需跳脱画面，学生观看时可随时唤出侧边栏，生成并保存个人全局笔记（当前不绑定课程）。
 3. 强级联的评价社区生态（MySQL 关联查询）：打分系统伴随评论，其他学生均可阅览并点赞（具有防止重复点赞约束），授课教师进行官方回复。
 4. 完备的数据与进度统计（大模块聚合查询）：支持学生个人的单门课进度概览和授课老师对全班的学习进度汇总信息洞察。
 5. 永不离线的贴身 AI 助教（硅基流动模型接口 / SSE 通信）：利用 Server-Sent Events 流式协议直连大语言模型，并将其封装为全局悬浮抽屉随时提供答疑。
 6. 剧场级内嵌阅览体验（Vue 3 / 多媒体适配）：重构了新标签页跳转的割裂逻辑，真正在课程核心区内嵌了兼容视频、音频、PDF与图片等多元媒体的响应式预览器，配合平滑滚动特效，形成了“中心大屏学习、左侧AI答疑、右侧唤出笔记”的完美三屏协同学习微环境。
+
 

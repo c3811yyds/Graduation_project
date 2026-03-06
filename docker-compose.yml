@@ -1,4 +1,4 @@
-# 使用 docker-compose 统一编排前端、后端及数据库
+# 使用 docker compose 统一编排前端、后端及数据库
 services:
   # ------ 前端服务 ------
   frontend:
@@ -28,6 +28,9 @@ services:
     #  - DATABASE_URL=mysql+pymysql://admin:yourpassword@db:3306/graduation_db
     depends_on:
       - db
+    volumes:
+      # 持久化课件上传目录，避免容器重建后文件丢失
+      - backend_storage:/app/backend/storage
     networks:
       - app-network
     restart: always
@@ -60,3 +63,4 @@ networks:
 # 定义数据卷
 volumes:
   db_data:
+  backend_storage:
