@@ -248,15 +248,15 @@
     - 注：当前表中没有 created_at、used_at 字段。
 
 关系说明
-   - users(teacher) 1-N courses
-   - users(student) M-N courses (通过 enrollments 桥接)
-   - courses 1-N contents
-   - contents N-M users(student) (通过 progress)
-   - courses 1-N reviews
-   - users(student/teacher) M-N reviews (通过 review_likes 桥接)
-   - courses 1-N messages
-   - users 1-N notes
-   - 注：notes 当前仅与 users 关联，不与 courses 关联。
+    - users(teacher) 1-N courses
+    - users(student) M-N courses (通过 enrollments 桥接)
+    - courses 1-N contents
+    - contents N-M users(student) (通过 progress)
+    - courses 1-N reviews
+    - users(student/teacher) M-N reviews (通过 review_likes 桥接)
+    - courses 1-N messages
+    - users 1-N notes
+    - 注：notes 当前仅与 users 关联，不与 courses 关联。
 
 六、接口清单（REST + JWT）
 
