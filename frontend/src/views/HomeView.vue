@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import http from "../api/http";
 
@@ -23,7 +23,9 @@ const teacherMyPublishedCourses = computed(() =>
 );
 const teacherOtherPublishedCourses = computed(() =>
   courses.value.filter(c => c.status === "published" && c.teacher_id !== me.value?.id)
-);// [功能说明]: 页面初始化时检查是否有 Token 并加载当前用户信息，判断是学生还是教师
+);
+
+// [功能说明]: 页面初始化时检查是否有 Token 并加载当前用户信息，判断是学生还是教师。
 async function loadMe() {
   const token = sessionStorage.getItem("token");
   if (!token) {
@@ -140,15 +142,20 @@ async function createCourse() {
   }
 }
 
-  onMounted(async () => {
-    await loadMe();
-    await loadCourses();
+const handleAuthChanged = async () => {
+  await loadMe();
+  await loadCourses();
+};
 
-    window.addEventListener('user-auth-changed', async () => {
-      await loadMe();
-      await loadCourses();
-    });
-  });
+onMounted(async () => {
+  await loadMe();
+  await loadCourses();
+  window.addEventListener('user-auth-changed', handleAuthChanged);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('user-auth-changed', handleAuthChanged);
+});
 </script>
 
 <template>
@@ -171,7 +178,9 @@ async function createCourse() {
           </button>
         </div>
       </div>
-    </section>    <template v-if="me && me.role === 'student'">
+    </section>
+
+    <template v-if="me && me.role === 'student'">
       <section class="panel">
         <h2>已选课程（{{ enrolledCourses.length }}）</h2>
         <div class="grid">

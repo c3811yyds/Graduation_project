@@ -1,4 +1,4 @@
-Docker 生产环境部署说明
+﻿Docker 生产环境部署说明
 
 一、整体组成
 1. 前端服务
@@ -21,6 +21,10 @@ git clone https://github.com/c3811yyds/Graduation_project.git
 cd Graduation_project
 
 说明：当前敏感词库已经并入主仓库，不再需要执行子模块相关命令。
+版本号说明：
+每次准备 Docker 上线前，请先手动修改项目根目录 `VERSION`。
+例如先执行 `nano VERSION`，再把内容改成 `v1.0.1` 这类你自己能识别的版本号。
+后端镜像构建时会把这个版本号写入镜像，前端页面顶部会显示当前部署版本。
 
 四、创建后端环境变量文件
 在项目根目录执行：
@@ -80,6 +84,7 @@ EOF
 五、启动服务
 在项目根目录执行：
 
+先确认根目录 `VERSION` 已经改成这次准备上线的版本号，再执行下面命令：
 docker compose up -d --build --force-recreate
 
 说明：
@@ -100,6 +105,7 @@ http://你的服务器公网IP
 1. 更新代码并重新构建
 
 git pull
+手动修改根目录 `VERSION`
 docker compose up -d --build
 
 2. 只重启后端

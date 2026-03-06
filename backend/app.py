@@ -1,6 +1,8 @@
-from flask import Flask, jsonify
-from dotenv import load_dotenv
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify
 from flask_cors import CORS
 from extensions import db, jwt
 from routes_account import auth_bp, user_bp
@@ -10,6 +12,17 @@ from routes_note import note_bp
 from routes_ai import ai_bp
 
 load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def load_app_version():
+    # 部署版本默认读项目根目录 VERSION；Docker 中可通过 APP_VERSION_FILE 指定镜像内路径
+    version_path = Path(os.getenv("APP_VERSION_FILE", str(BASE_DIR / "VERSION")))
+    try:
+        version = version_path.read_text(encoding="utf-8").strip()
+        return version or "dev"
+    except OSError:
+        return "dev"
 
 def create_app():
     app = Flask(__name__)
@@ -24,6 +37,7 @@ def create_app():
         "JWT_SECRET_KEY",
         "gp_dev_super_secret_key_2026_please_change_32bytes_plus",
     )
+    app.config["APP_VERSION"] = load_app_version()
     
     # 优先使用 .env 里的 UPLOAD_DIR 绝对路径，如果没有则默认存放在项目同级的 uploads 文件夹
     app.config["UPLOAD_DIR"] = os.getenv(
@@ -60,7 +74,19 @@ def create_app():
 
     @app.get("/api/health")
     def health():
-        return jsonify({"code": 0, "message": "ok", "data": {"service": "backend"}})
+        return jsonify({
+            "code": 0,
+            "message": "ok",
+            "data": {"service": "backend", "version": app.config["APP_VERSION"]},
+        })
+
+    @app.get("/api/version")
+    def version():
+        return jsonify({
+            "code": 0,
+            "message": "ok",
+            "data": {"version": app.config["APP_VERSION"]},
+        })
 
     return app
 

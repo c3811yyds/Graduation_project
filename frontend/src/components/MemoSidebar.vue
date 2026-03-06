@@ -67,17 +67,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import http from '../api/http'
 
-// State
+// 侧边栏与笔记列表基础状态。
 const isOpen = ref(false)
 const notes = ref([])
 const activeNoteId = ref(null)
 const error = ref('')
-const forceUpdate = ref(1) // used to trigger a computed re-evaluate
+const forceUpdate = ref(1)
 
-// Editing state
+// 当前正在编辑的标题、正文以及保存提示状态。
 const editTitle = ref('')
 const editContent = ref('')
 const isSaving = ref(false)
@@ -107,7 +107,7 @@ async function loadNotes() {
     const res = await http.get('/notes')
     notes.value = res.data.data || []
     
-    // Auto select first note if none selected
+    // 首次加载后自动选中第一篇笔记，避免右侧编辑区为空。
     if (notes.value.length > 0 && !activeNoteId.value) {
       activeNoteId.value = notes.value[0].id
       syncEditState()
@@ -152,7 +152,7 @@ let saveTimeout = null
 async function saveNote() {
   if (!activeNote.value || !isLoggedIn.value) return
   
-  // If nothing changed, don't ping backend
+  // 标题和正文都没变时，不重复请求后端。
   if (editTitle.value === activeNote.value.title && editContent.value === activeNote.value.content) {
     return
   }
@@ -168,7 +168,7 @@ async function saveNote() {
       content: editContent.value
     })
     
-    // Update local state directly to avoid full reload jump
+    // 直接回写本地状态，避免每次保存都整列表重载。
     activeNote.value.title = res.data.data.title
     activeNote.value.content = res.data.data.content
     activeNote.value.updated_at = res.data.data.updated_at
@@ -176,7 +176,7 @@ async function saveNote() {
     isSaving.value = false
     saveSuccess.value = true
     
-    // Hide success message after 3 secs
+    // 保存成功提示 3 秒后自动消失。
     clearTimeout(saveTimeout)
     saveTimeout = setTimeout(() => {
       saveSuccess.value = false
@@ -215,26 +215,30 @@ function formatTime(iso) {
     return `${d.getMonth()+1}-${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`
 }
 
-// Global Custom Event listener pattern to refresh on Login/Logout
-onMounted(() => {
-    // If the user lands while logged in, pre-fetch
-    if (isLoggedIn.value) {
-        loadNotes()
-    }
+const handleAuthChanged = () => {
+  forceUpdate.value++
+  if (isLoggedIn.value) {
+    loadNotes()
+  } else {
+    notes.value = []
+    activeNoteId.value = null
+    editTitle.value = ''
+    editContent.value = ''
+    isOpen.value = false
+  }
+}
 
-    // Simple window event hook to listen if AppLayout fires a login event
-    window.addEventListener('user-auth-changed', () => {
-        forceUpdate.value++ // trigger re-eval of isLoggedIn
-        if(isLoggedIn.value) {
-            loadNotes()
-        } else {
-            notes.value = []
-            activeNoteId.value = null
-            editTitle.value = ''
-            editContent.value = ''
-            isOpen.value = false // automatically close it logic
-        }
-    })
+// 监听登录态变化，登录后自动拉取笔记，退出后清空本地状态。
+onMounted(() => {
+  if (isLoggedIn.value) {
+    loadNotes()
+  }
+  window.addEventListener('user-auth-changed', handleAuthChanged)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('user-auth-changed', handleAuthChanged)
+  clearTimeout(saveTimeout)
 })
 </script>
 

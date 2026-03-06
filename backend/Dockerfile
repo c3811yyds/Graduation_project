@@ -10,6 +10,10 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt -i https://pypi.tuna.tsi
 # Copy backend source and third-party sensitive lexicon into image
 COPY backend /app/backend
 COPY third_party/Sensitive-lexicon /app/third_party/Sensitive-lexicon
+COPY VERSION /app/VERSION
+
+# Docker 构建时把根目录 VERSION 打进镜像，运行时统一从这里读取版本号
+ENV APP_VERSION_FILE=/app/VERSION
 
 WORKDIR /app/backend
 

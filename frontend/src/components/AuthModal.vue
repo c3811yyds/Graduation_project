@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
 import http from '../api/http'
 
 const props = defineProps({
@@ -19,6 +19,7 @@ const error = ref('')
 const cooldown = ref(0)
 let timer = null
 
+// 弹窗每次重新打开时，重置输入状态和验证码倒计时。
 watch(
   () => props.modelValue,
   (v) => {
@@ -36,6 +37,7 @@ watch(
   }
 )
 
+// 登录 / 注册 / 找回密码互相切换时，清掉上一个模式遗留的临时输入。
 watch(
   () => props.mode,
   () => {
@@ -117,6 +119,10 @@ async function submit() {
     loading.value = false
   }
 }
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
 </script>
 
 <template>

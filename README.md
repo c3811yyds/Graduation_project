@@ -63,6 +63,7 @@
    - 开发：本地 .env，Docker 可选。
    - 生产：Nginx + Gunicorn + MySQL，打包 Vue 静态文件。
    - 服务器完整部署详细步骤请专门参考：[Docker部署指南](./DEPLOY_DOCKER.md)
+   - 版本：根目录 `VERSION` 为当前 Docker 上线展示版本号。每次准备上线前，请先手动修改它，再执行 `docker compose up -d --build`。
    - 说明：当前版本更新不涉及数据库表结构变更，无需执行迁移脚本。
 
 三、快速开始
@@ -298,6 +299,7 @@
     - PATCH /api/users/me/password : 已登录用户验证码改密
     - GET /api/users/analytics : 获取数据大盘（学生/教师视角）
     - GET /api/health : 健康检查
+    - GET /api/version : 获取当前部署版本号
     - 说明：密码找回/改密依赖用户邮箱；若历史账号 users.email 为空，需要先补邮箱后再使用验证码链路。
 
 2. 【课程模块】

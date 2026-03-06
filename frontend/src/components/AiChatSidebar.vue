@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick, computed, onMounted } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const isOpen = ref(false)
 
@@ -7,18 +7,6 @@ const forceUpdate = ref(1)
 const isLoggedIn = computed(() => {
   forceUpdate.value
   return !!sessionStorage.getItem('token')
-})
-
-onMounted(() => {
-  window.addEventListener('user-auth-changed', () => {
-    forceUpdate.value++
-    if (!isLoggedIn.value) {
-      messages.value = [
-        { role: 'ai', text: '你好！我是你的 AI 学习助教。有什么学习上的问题想探讨吗？' }
-      ]
-      isOpen.value = false
-    }
-  })
 })
 
 // 聊天记录 [{ role: 'user' | 'ai', text: '...', loading: false }]
@@ -52,6 +40,16 @@ watch(isOpen, (val) => {
     scrollToBottom()
   }
 })
+
+const handleAuthChanged = () => {
+  forceUpdate.value++
+  if (!isLoggedIn.value) {
+    messages.value = [
+      { role: 'ai', text: '你好！我是你的 AI 学习助教。有什么学习上的问题想探讨吗？' }
+    ]
+    isOpen.value = false
+  }
+}
 
 async function sendMessage() {
   const text = inputStr.value.trim()
@@ -140,6 +138,15 @@ async function sendMessage() {
     messages.value[replyIndex].loading = false
   }
 }
+
+// 登录态变化后同步刷新助教面板状态，退出登录时重置会话内容。
+onMounted(() => {
+  window.addEventListener('user-auth-changed', handleAuthChanged)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('user-auth-changed', handleAuthChanged)
+})
 </script>
 
 <template>
@@ -194,7 +201,9 @@ async function sendMessage() {
       </div>
     </template>
   </div>
-</template><style scoped>
+</template>
+
+<style scoped>
 .ai-drawer {
   position: fixed;
   top: 68px; /* 紧贴顶部 */
