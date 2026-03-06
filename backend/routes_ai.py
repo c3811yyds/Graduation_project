@@ -3,6 +3,7 @@ from flask import Blueprint, request, Response, stream_with_context
 from extensions import jwt
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
+from sensitive_filter import reject_sensitive_fields
 
 # 创建 AI 专属蓝图
 ai_bp = Blueprint("ai", __name__, url_prefix="/api/ai")
@@ -18,6 +19,13 @@ def ai_chat():
 
     if not user_message:
         return {"code": 400, "message": "消息不能为空", "data": None}, 400
+
+    def err(message="error", status=400):
+        return {"code": status, "message": message, "data": None}, status
+
+    sensitive_err = reject_sensitive_fields({"AI消息内容": user_message}, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
 
     api_key = os.getenv("SILICON_API_KEY")
 

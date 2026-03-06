@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from extensions import db
 from models import Note, User
+from sensitive_filter import reject_sensitive_fields
 
 note_bp = Blueprint("notes", __name__, url_prefix="/api/notes")
 
@@ -62,6 +63,9 @@ def create_note():
         
     body = request.get_json(silent=True) or {}
     title = (body.get("title") or "未命名笔记").strip()
+    sensitive_err = reject_sensitive_fields({"笔记标题": title}, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
     
     n = Note(
         user_id=u.id,
@@ -90,9 +94,18 @@ def update_note(note_id):
         return err("无修改权限或文档不存在", status=404)
         
     body = request.get_json(silent=True) or {}
+    pending_fields = {}
+    if "title" in body:
+        pending_fields["笔记标题"] = (body.get("title") or "").strip() or "未命名笔记"
+    if "content" in body:
+        pending_fields["笔记内容"] = body.get("content") or ""
+    sensitive_err = reject_sensitive_fields(pending_fields, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
+
     # 支持修改标题或内容
     if "title" in body:
-        n.title = body.get("title").strip() or "未命名笔记"
+        n.title = (body.get("title") or "").strip() or "未命名笔记"
     if "content" in body:
         n.content = body.get("content") or ""
         

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from functools import lru_cache
 import os
 import uuid
 import random
@@ -18,6 +17,7 @@ from werkzeug.utils import secure_filename
 
 from extensions import db
 from models import User, Course, Enrollment, Content, Progress, Message, Review, ReviewLike, VerifyCode, TeacherInviteCode
+from sensitive_filter import reject_sensitive_fields
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 user_bp = Blueprint("users", __name__, url_prefix="/api/users")
@@ -180,74 +180,6 @@ def allowed_ext(filename: str):
     return ext in allowed
 
 
-DEFAULT_SENSITIVE_WORDS = {
-    "admin", "root", "system", "管理员", "官方", "客服",
-    "傻逼", "操", "妈的", "废物", "垃圾", "弱智",
-    "抗议", "示威", "革命", "政变", "分裂", "颠覆", "暴动",
-    "性", "色情", "淫秽", "约炮", "裸聊", "黄片", "黄色网站", "援交",
-    "攻击", "冲突", "战争", "屠杀", "爆炸", "枪击", "刺杀", "恐袭",
-    "毒品", "赌博", "非法交易", "贩毒", "洗钱", "诈骗", "走私", "黑市",
-    "歧视", "虚假宣传", "夸大效果", "造谣", "仇恨言论", "传销", "测试",
-}
-
-
-def _candidate_sensitive_lexicon_dirs() -> list[Path]:
-    custom_dir = (os.getenv("SENSITIVE_LEXICON_DIR") or "").strip()
-    this_file = Path(__file__).resolve()
-    candidates = []
-
-    if custom_dir:
-        candidates.append(Path(custom_dir))
-
-    # 本地开发：仓库根目录/third_party/Sensitive-lexicon/Vocabulary
-    candidates.append(this_file.parent.parent / "third_party" / "Sensitive-lexicon" / "Vocabulary")
-    # 兼容将词库直接放到 backend 目录下的场景
-    candidates.append(this_file.parent / "third_party" / "Sensitive-lexicon" / "Vocabulary")
-    return candidates
-
-
-def _read_text_with_fallback_encodings(path: Path):
-    for enc in ("utf-8", "utf-8-sig", "gb18030", "gbk"):
-        try:
-            return path.read_text(encoding=enc)
-        except UnicodeDecodeError:
-            continue
-        except Exception:
-            return None
-    return None
-
-
-@lru_cache(maxsize=1)
-def load_sensitive_words() -> tuple[str, ...]:
-    words = {w.lower() for w in DEFAULT_SENSITIVE_WORDS}
-
-    for base_dir in _candidate_sensitive_lexicon_dirs():
-        if not base_dir.exists() or not base_dir.is_dir():
-            continue
-        for txt_file in base_dir.glob("*.txt"):
-            text = _read_text_with_fallback_encodings(txt_file)
-            if not text:
-                continue
-            for raw in text.splitlines():
-                word = raw.strip().lstrip("\ufeff")
-                if not word or word.startswith("#"):
-                    continue
-                words.add(word.lower())
-
-    # 长词优先，提升命中稳定性
-    return tuple(sorted(words, key=len, reverse=True))
-
-
-def find_sensitive_word(text: str):
-    lowered = (text or "").strip().lower()
-    if not lowered:
-        return None
-    for word in load_sensitive_words():
-        if word and word in lowered:
-            return word
-    return None
-
-
 # ---------- auth ----------
 
 def send_email_code(email: str, code: str):
@@ -334,6 +266,10 @@ def register():
         return err("password 至少 6 位")
     if not verify_code:
         return err("请输入邮箱验证码")
+
+    sensitive_err = reject_sensitive_fields({"用户名": username}, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
 
     if role == "teacher":
         if not invite_code:
@@ -444,12 +380,15 @@ def update_profile():
     new_gender = data.get("gender", "").strip()
     new_hobby = data.get("hobby", "").strip()
     
-    # 敏感词检查（优先读取 third_party/Sensitive-lexicon 词库，缺失时回退内置词表）
+    sensitive_err = reject_sensitive_fields(
+        {"用户名": new_username, "个人简介": new_hobby},
+        err,
+        scene="content",
+    )
+    if sensitive_err:
+        return sensitive_err
+
     if new_username:
-        hit_word = find_sensitive_word(new_username)
-        if hit_word:
-            return err(f"用户名包含敏感词汇：{hit_word}", status=400)
-                
         # 检查重名
         if new_username != u.username:
             exist = User.query.filter_by(username=new_username).first()
@@ -534,6 +473,14 @@ def create_course():
     if not title:
         return err("课程标题不能为空")
 
+    sensitive_err = reject_sensitive_fields(
+        {"课程标题": title, "课程简介": description},
+        err,
+        scene="content",
+    )
+    if sensitive_err:
+        return sensitive_err
+
     c = Course(
         title=title,
         description=description,
@@ -569,14 +516,26 @@ def update_course(course_id):
     if not has_title and not has_desc:
         return err("至少提交一个可修改字段(title/description)")
 
+    pending_fields = {}
     if has_title:
         title = (body.get("title") or "").strip()
         if not title:
             return err("课程标题不能为空")
+        pending_fields["课程标题"] = title
+
+    if has_desc:
+        description = (body.get("description") or "").strip()
+        pending_fields["课程简介"] = description
+
+    sensitive_err = reject_sensitive_fields(pending_fields, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
+
+    if has_title:
         c.title = title
 
     if has_desc:
-        c.description = (body.get("description") or "").strip()
+        c.description = description
 
     c.updated_at = now()
     db.session.commit()
@@ -886,11 +845,16 @@ def upload_course_content(course_id):
     ext = safe.rsplit(".", 1)[-1].lower()
     final_name = f"{uuid.uuid4().hex}.{ext}"
     full = upload_dir() / final_name
+    title = (request.form.get("title") or "").strip() or safe
+
+    sensitive_err = reject_sensitive_fields({"课件标题": title}, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
+
     f.save(full)
 
     # 不再硬编码 uploads/，直接保存文件名，因为我们在读取时会自动使用 upload_dir() 来查找
     rel = final_name
-    title = (request.form.get("title") or "").strip() or safe
     
     if ext in {"mp4", "webm", "ogg", "mov", "avi"}:
         ctype = "video"
@@ -938,6 +902,10 @@ def update_content(content_id):
     new_title = data.get("title", "").strip()
     if not new_title:
         return err("课件名称不能为空", status=400)
+
+    sensitive_err = reject_sensitive_fields({"课件标题": new_title}, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
 
     item.title = new_title
     db.session.commit()
@@ -1095,6 +1063,10 @@ def create_course_message(course_id):
     if not text:
         return err("留言内容不能为空")
 
+    sensitive_err = reject_sensitive_fields({"留言内容": text}, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
+
     m = Message(
         course_id=course_id,
         sender_id=u.id,
@@ -1167,6 +1139,10 @@ def create_course_review(course_id):
     
     if not rating or rating < 1 or rating > 5:
         return err("请输入1到5的有效星级评分", status=400)
+
+    sensitive_err = reject_sensitive_fields({"评价内容": comment}, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
         
     r = Review(
         course_id=course_id,
@@ -1220,6 +1196,10 @@ def reply_course_review(course_id, review_id):
 
     body = request.get_json(silent=True) or {}
     reply_content = body.get("reply_content", "").strip()
+
+    sensitive_err = reject_sensitive_fields({"回复内容": reply_content}, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
     
     r.reply_content = reply_content
     r.reply_time = now() if reply_content else None
