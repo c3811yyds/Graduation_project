@@ -158,94 +158,93 @@
   注：若后续你新增字段/索引，请同步更新这里，避免文档与代码漂移。
 
 Table 1: users (用户表)
-  - id (PK)
-  - username (唯一)
-  - email (唯一)
-  - password_hash
-  - role (student/teacher)
-  - status (当前使用 active)
-  - 其他信息: gender, hobby, created_at, updated_at
-  - 注：当前表中没有 phone 字段。
+  - id (PK)  （主键，用户唯一标识）
+  - username (唯一)  （用户名/昵称字段，系统内不可重复）
+  - email (唯一)  （邮箱字段，用于登录与验证码接收，系统内不可重复）
+  - password_hash（密码哈希值，存储加密结果而非明文密码）
+  - role (student/teacher)  （角色字段，决定用户权限范围）
+  - status (当前使用 active)  （账号状态字段，用于标记账号是否可用）
+  - 其他信息: gender, hobby, created_at, updated_at（gender 为性别，hobby 为爱好，created_at 为创建时间，updated_at 为更新时间）
 
 Table 2: courses (课程表)
-  - id (PK)
-  - title, description
-  - teacher_id (FK -> users.id)
-  - status (draft/published)
-  - created_at, updated_at
+  - id (PK)  （主键，课程唯一标识）
+  - title, description（title 为课程标题，description 为课程简介）
+  - teacher_id (FK -> users.id)  （外键，指向课程所属教师用户）
+  - status (draft/published)  （课程状态，draft 为草稿，published 为已发布）
+  - created_at, updated_at（created_at 为创建时间，updated_at 为最后更新时间）
   - 注：当前后端没有 archived 状态流转接口。
 
 Table 3: enrollments (选课表)
-  - id (PK)
-  - course_id (FK -> courses.id)
-  - student_id (FK -> users.id)
-  - status (enrolled/dropped)
-  - enrolled_at
+  - id (PK)  （主键，选课记录唯一标识）
+  - course_id (FK -> courses.id)  （外键，指向被选课程）
+  - student_id (FK -> users.id)  （外键，指向选课学生）
+  - status (enrolled/dropped)  （选课状态，enrolled 为已选，dropped 为已退）
+  - enrolled_at（选课时间）
   - 约束：(course_id, student_id) 联合唯一
 
 Table 4: contents (课件内容表)
-  - id (PK)
-  - course_id (FK -> courses.id)
-  - title (智能命名的课件名)
-  - type (video/audio/image/pdf/doc/...，按扩展名映射)
-  - url_or_path (静态服务器文件标识)
-  - duration_seconds (视频可用)
-  - size_bytes
-  - created_at
+  - id (PK)  （主键，课件记录唯一标识）
+  - course_id (FK -> courses.id)  （外键，指向所属课程）
+  - title (智能命名的课件名)  （课件展示名称）
+  - type (video/audio/image/pdf/doc/...，按扩展名映射)  （课件类型字段，用于前端选择预览方式）
+  - url_or_path (静态服务器文件标识)  （文件访问路径或外部资源地址）
+  - duration_seconds (视频可用)  （视频/音频时长，单位秒）
+  - size_bytes（文件大小，单位字节）
+  - created_at（课件上传时间）
 
 Table 5: progress (学习进度记录表)
-  - id (PK)
-  - content_id (FK -> contents.id)
-  - student_id (FK -> users.id)
-  - progress_percent (0-100)
-  - status (not_started/in_progress/completed)
-  - last_viewed_at, completed_at
+  - id (PK)  （主键，进度记录唯一标识）
+  - content_id (FK -> contents.id)  （外键，指向具体课件）
+  - student_id (FK -> users.id)  （外键，指向学习该课件的学生）
+  - progress_percent (0-100)  （学习进度百分比）
+  - status (not_started/in_progress/completed)  （进度状态：未开始/进行中/已完成）
+  - last_viewed_at, completed_at（last_viewed_at 为最近学习时间，completed_at 为完成时间）
 
 Table 6: reviews (课程评价表)
-  - id (PK)
-  - course_id (FK -> courses.id)
-  - user_id (FK -> users.id)
-  - rating (1-5星), comment (文字评价)
-  - reply_content (教师回复内容), reply_time
-  - likes_count (累计获赞总数)
+  - id (PK)  （主键，评价记录唯一标识）
+  - course_id (FK -> courses.id)  （外键，指向被评价课程）
+  - user_id (FK -> users.id)  （外键，指向评价发起用户）
+  - rating (1-5星), comment (文字评价)  （rating 为评分，comment 为评价内容）
+  - reply_content (教师回复内容), reply_time（reply_content 为教师回复，reply_time 为回复时间）
+  - likes_count (累计获赞总数)  （该评价的总点赞数）
 
 Table 7: review_likes (评价点赞连接表)
-  - id (PK)
-  - review_id (FK -> reviews.id)
-  - user_id (FK -> users.id)
-  - created_at
+  - id (PK)  （主键，点赞记录唯一标识）
+  - review_id (FK -> reviews.id)  （外键，指向被点赞评价）
+  - user_id (FK -> users.id)  （外键，指向点赞用户）
+  - created_at（点赞时间）
   - 拥有联合唯一约束防止重复点赞
 
 Table 8: messages (留言交流表)
-  - id (PK)
-  - course_id (FK -> courses.id)
-  - sender_id (FK -> users.id)
-  - receiver_id (FK -> users.id, 可选)
-  - content
-  - created_at
+  - id (PK)  （主键，留言记录唯一标识）
+  - course_id (FK -> courses.id)  （外键，指向所属课程）
+  - sender_id (FK -> users.id)  （外键，指向发送方用户）
+  - receiver_id (FK -> users.id, 可选)  （外键，指向接收方用户，可为空）
+  - content（留言正文内容）
+  - created_at（留言创建时间）
 
 Table 9: notes (随堂笔记表)
-  - id (PK)
-  - user_id (FK -> users.id)
-  - title
-  - content (长文本格式笔记内容)
-  - created_at, updated_at
+  - id (PK)  （主键，笔记记录唯一标识）
+  - user_id (FK -> users.id)  （外键，指向笔记所属用户）
+  - title（笔记标题）
+  - content (长文本格式笔记内容)  （笔记正文内容，支持较长文本）
+  - created_at, updated_at（created_at 为创建时间，updated_at 为更新时间）
   - 注：当前实现是“用户个人笔记”，不绑定 course_id。
 
 Table 10: verify_codes (邮箱验证码表)
-  - id (PK)
-  - email (目标邮箱)
-  - code (验证码)
-  - expires_at
+  - id (PK)  （主键，验证码记录唯一标识）
+  - email (目标邮箱)  （验证码发送目标邮箱）
+  - code (验证码)  （一次性验证码内容）
+  - expires_at（验证码过期时间）
   - 用途：注册验证码、忘记密码验证码、个人中心改密验证码
   - 注：当前表中没有 created_at 字段，验证码过期/冷却由业务层按 expires_at 控制。
 
 Table 11: teacher_invite_codes (教师邀请码表)
-  - id (PK)
-  - code (系统分配的邀请码)
-  - is_used (布尔值：是否已使用)
-  - expires_at
-  - used_by_id (FK -> users.id, 绑定的用户)
+  - id (PK)  （主键，邀请码记录唯一标识）
+  - code (系统分配的邀请码)  （教师注册使用的邀请码字符串）
+  - is_used (布尔值：是否已使用)  （邀请码是否已被使用）
+  - expires_at（邀请码过期时间）
+  - used_by_id (FK -> users.id, 绑定的用户)  （外键，指向实际使用该邀请码的用户）
   - 注：当前表中没有 created_at、used_at 字段。
 
 1. 关系说明
