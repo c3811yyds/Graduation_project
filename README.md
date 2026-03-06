@@ -69,29 +69,29 @@
 2. 后端运行 (Flask)
    请确保您的机器已经安装了 MySQL，并使用根目录提供的 .sql 文件导入数据库结构和初始数据：
 
-   (1) 登录 MySQL
+   - (1) 登录 MySQL
      mysql -u root -p
 
-   (2) 创建并选择数据库
+   - (2) 创建并选择数据库
      CREATE DATABASE graduation_project DEFAULT CHARACTER SET utf8mb4;
      USE graduation_project;
 
-   (3) 导入数据（注意您的实际路径）
+   - (3) 导入数据（注意您的实际路径）
      source /您的路径/database_seed.sql;
 
-   (4) 进入后端目录
+   - (4) 进入后端目录
      cd backend
 
-   (5) 创建并激活虚拟环境
+   - (5) 创建并激活虚拟环境
      python -m venv venv
      Windows 命令提示符 (cmd): venv\Scripts\activate
      Windows PowerShell: .\venv\Scripts\Activate.ps1
      Mac/Linux: source venv/bin/activate
 
-   (6) 安装依赖
+   - (6) 安装依赖
      pip install -r requirements.txt
 
-   (7) 配置环境变量
+   - (7) 配置环境变量
      复制示例环境变量文件，并按需修改：
      cp env.example .env
 
@@ -102,18 +102,18 @@
      SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
      MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD=填入你的发信邮箱配置(用于发送注册验证码)
 
-   (8) 运行服务 (默认监听在 5000 端口)
+   - (8) 运行服务 (默认监听在 5000 端口)
      python app.py
 
 
 3. 前端运行 (Vue 3)
-   (1) 新开一个终端并进入前端目录
+   - (1) 新开一个终端并进入前端目录
      cd frontend
 
-   (2) 安装模块（首次运行）
+   - (2) 安装模块（首次运行）
      npm install
 
-   (3) 启动服务 (默认监听在 5173 端口)
+   - (3) 启动服务 (默认监听在 5173 端口)
      npm run dev
 
 
@@ -157,7 +157,7 @@
   注：本节按当前 database_seed.sql 与 backend/models.py 实际字段整理。
   注：若后续你新增字段/索引，请同步更新这里，避免文档与代码漂移。
 
-Table 1: users (用户表)
+1. Table 1: users (用户表)
    - id (PK)  （主键，用户唯一标识）
    - username (唯一)  （用户名/昵称字段，系统内不可重复）
    - email (唯一)  （邮箱字段，用于登录与验证码接收，系统内不可重复）
@@ -166,7 +166,7 @@ Table 1: users (用户表)
    - status (当前使用 active)  （账号状态字段，用于标记账号是否可用）
    - 其他信息: gender, hobby, created_at, updated_at（gender 为性别，hobby 为爱好，created_at 为创建时间，updated_at 为更新时间）
 
-Table 2: courses (课程表)
+2. Table 2: courses (课程表)
    - id (PK)  （主键，课程唯一标识）
    - title, description（title 为课程标题，description 为课程简介）
    - teacher_id (FK -> users.id)  （外键，指向课程所属教师用户）
@@ -174,7 +174,7 @@ Table 2: courses (课程表)
    - created_at, updated_at（created_at 为创建时间，updated_at 为最后更新时间）
    - 注：当前后端没有 archived 状态流转接口。
 
-Table 3: enrollments (选课表)
+3. Table 3: enrollments (选课表)
    - id (PK)  （主键，选课记录唯一标识）
    - course_id (FK -> courses.id)  （外键，指向被选课程）
    - student_id (FK -> users.id)  （外键，指向选课学生）
@@ -182,7 +182,7 @@ Table 3: enrollments (选课表)
    - enrolled_at（选课时间）
    - 约束：(course_id, student_id) 联合唯一
 
-Table 4: contents (课件内容表)
+4. Table 4: contents (课件内容表)
    - id (PK)  （主键，课件记录唯一标识）
    - course_id (FK -> courses.id)  （外键，指向所属课程）
    - title (智能命名的课件名)  （课件展示名称）
@@ -192,7 +192,7 @@ Table 4: contents (课件内容表)
    - size_bytes（文件大小，单位字节）
    - created_at（课件上传时间）
 
-Table 5: progress (学习进度记录表)
+5. Table 5: progress (学习进度记录表)
    - id (PK)  （主键，进度记录唯一标识）
    - content_id (FK -> contents.id)  （外键，指向具体课件）
    - student_id (FK -> users.id)  （外键，指向学习该课件的学生）
@@ -200,7 +200,7 @@ Table 5: progress (学习进度记录表)
    - status (not_started/in_progress/completed)  （进度状态：未开始/进行中/已完成）
    - last_viewed_at, completed_at（last_viewed_at 为最近学习时间，completed_at 为完成时间）
 
-Table 6: reviews (课程评价表)
+6. Table 6: reviews (课程评价表)
    - id (PK)  （主键，评价记录唯一标识）
    - course_id (FK -> courses.id)  （外键，指向被评价课程）
    - user_id (FK -> users.id)  （外键，指向评价发起用户）
@@ -208,14 +208,14 @@ Table 6: reviews (课程评价表)
    - reply_content (教师回复内容), reply_time（reply_content 为教师回复，reply_time 为回复时间）
    - likes_count (累计获赞总数)  （该评价的总点赞数）
 
-Table 7: review_likes (评价点赞连接表)
+7. Table 7: review_likes (评价点赞连接表)
    - id (PK)  （主键，点赞记录唯一标识）
    - review_id (FK -> reviews.id)  （外键，指向被点赞评价）
    - user_id (FK -> users.id)  （外键，指向点赞用户）
    - created_at（点赞时间）
    - 拥有联合唯一约束防止重复点赞
 
-Table 8: messages (留言交流表)
+8. Table 8: messages (留言交流表)
    - id (PK)  （主键，留言记录唯一标识）
    - course_id (FK -> courses.id)  （外键，指向所属课程）
    - sender_id (FK -> users.id)  （外键，指向发送方用户）
@@ -223,7 +223,7 @@ Table 8: messages (留言交流表)
    - content（留言正文内容）
    - created_at（留言创建时间）
 
-Table 9: notes (随堂笔记表)
+9. Table 9: notes (随堂笔记表)
    - id (PK)  （主键，笔记记录唯一标识）
    - user_id (FK -> users.id)  （外键，指向笔记所属用户）
    - title（笔记标题）
@@ -231,7 +231,7 @@ Table 9: notes (随堂笔记表)
    - created_at, updated_at（created_at 为创建时间，updated_at 为更新时间）
    - 注：当前实现是“用户个人笔记”，不绑定 course_id。
 
-Table 10: verify_codes (邮箱验证码表)
+10. Table 10: verify_codes (邮箱验证码表)
    - id (PK)  （主键，验证码记录唯一标识）
    - email (目标邮箱)  （验证码发送目标邮箱）
    - code (验证码)  （一次性验证码内容）
@@ -239,7 +239,7 @@ Table 10: verify_codes (邮箱验证码表)
    - 用途：注册验证码、忘记密码验证码、个人中心改密验证码
    - 注：当前表中没有 created_at 字段，验证码过期/冷却由业务层按 expires_at 控制。
 
-Table 11: teacher_invite_codes (教师邀请码表)
+11. Table 11: teacher_invite_codes (教师邀请码表)
    - id (PK)  （主键，邀请码记录唯一标识）
    - code (系统分配的邀请码)  （教师注册使用的邀请码字符串）
    - is_used (布尔值：是否已使用)  （邀请码是否已被使用）
