@@ -71,6 +71,7 @@ const form = ref({
 
 onMounted(async () => {
   try {
+    // [后端映射]: GET /api/users/me -> 读取个人资料
     const res = await http.get('/users/me');
     const u = res.data.data;
     form.value.username = u.username || '';
@@ -89,7 +90,8 @@ async function saveProfile() {
     return;
   }
   try {
-    const res = await http.patch('/users/me', form.value);
+    // [后端映射]: PATCH /api/users/me -> 更新个人资料
+    await http.patch('/users/me', form.value);
     alert("个人资料更新成功！");
     // 更新完成后重新加载页面使状态生效
     window.location.reload();

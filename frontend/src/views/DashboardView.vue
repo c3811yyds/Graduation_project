@@ -6,7 +6,7 @@
           <h1 style="margin-bottom: 0.5rem;">数据大屏分析系统</h1>
           <p class="muted" style="margin-top: 0;">实时监控你的教学/学习进度状态</p>
         </div>
-        <button class="btn" @click="goHome">🏠 返回主页</button>
+        <button class="btn" @click="goHome">返回主页</button>
       </div>
     </header>
 

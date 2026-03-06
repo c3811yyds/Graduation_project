@@ -31,6 +31,7 @@ async function loadMe() {
     return;
   }
   try {
+    // [后端映射]: GET /api/users/me -> 获取当前登录用户信息
     const res = await http.get("/users/me");
     me.value = res.data.data || null;
   } catch {
@@ -41,6 +42,7 @@ async function loadMe() {
 
 // [功能说明]: 请求后端获取课程列表，供下方卡片渲染
 async function loadCourses() {
+  // [后端映射]: GET /api/courses -> 获取课程大厅列表
   const res = await http.get("/courses");
   courses.value = res.data.data || [];
 }
@@ -53,6 +55,7 @@ function openDetail(id) {
 // [功能说明]: 学生点击 "选课" 按钮触发，后端建立绑定关系后刷新列表
 async function enroll(courseId) {
   try {
+    // [后端映射]: POST /api/courses/<id>/enroll -> 学生选课
     await http.post(`/courses/${courseId}/enroll`);
     await loadCourses();
   } catch (e) {
@@ -63,6 +66,7 @@ async function enroll(courseId) {
 // [功能说明]: 学生点击 "退课" 按钮触发，解除选修绑定
 async function drop(courseId) {
   try {
+    // [后端映射]: DELETE /api/courses/<id>/enroll -> 学生退课
     await http.delete(`/courses/${courseId}/enroll`);
     await loadCourses();
   } catch (e) {
@@ -73,6 +77,7 @@ async function drop(courseId) {
 // [功能说明]: 教师点击 "发布课程" 按钮触发，把草稿状态变为上架
 async function publishCourse(courseId) {
   try {
+    // [后端映射]: PUT /api/courses/<id>/publish -> 教师发布课程
     await http.put(`/courses/${courseId}/publish`);
     await loadCourses();
   } catch (e) {
@@ -84,6 +89,7 @@ async function publishCourse(courseId) {
 async function unpublishCourse(courseId) {
   if (!confirm("确认下架该课程吗？下架后学生将无法选课。")) return;
   try {
+    // [后端映射]: PUT /api/courses/<id>/unpublish -> 教师下架课程
     await http.put(`/courses/${courseId}/unpublish`);
     await loadCourses();
   } catch (e) {
@@ -99,6 +105,7 @@ async function generateInvite() {
   if (isGenerating.value) return;
   isGenerating.value = true;
   try {
+    // [后端映射]: POST /api/auth/generate-invite -> 生成教师邀请码
     const res = await http.post("/auth/generate-invite");
     generatedCode.value = res.data.data.code;
   } catch (e) {
@@ -119,6 +126,7 @@ async function createCourse() {
     return;
   }
   try {
+    // [后端映射]: POST /api/courses -> 教师创建课程草稿
     await http.post("/courses", {
       title: newCourseTitle.value.trim(),
       description: newCourseDesc.value.trim(),

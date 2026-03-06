@@ -1,6 +1,7 @@
 from datetime import datetime
 from extensions import db
 
+# 数据模型定义：与 database_seed.sql 中的核心表结构保持一致
 
 class User(db.Model):
     __tablename__ = "users"

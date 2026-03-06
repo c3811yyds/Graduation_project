@@ -70,6 +70,7 @@ async function sendMessage() {
     const token = sessionStorage.getItem('token')
     
     // 使用相对路径以支持Nginx反向代理和Server-Sent Events
+    // [后端映射]: POST /api/ai/chat -> 发起 AI 聊天并接收流式回复
     const res = await fetch('/api/ai/chat', {
       method: 'POST',
       headers: {
@@ -83,7 +84,15 @@ async function sendMessage() {
     })
 
     if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`)
+      let msg = `请求失败(${res.status})`
+      try {
+        const data = await res.json()
+        msg = data?.message || data?.msg || msg
+      } catch (_) {}
+      if (res.status === 401 && (!msg || msg.startsWith('请求失败'))) {
+        msg = '请先登录或重新登录后再使用 AI 助教'
+      }
+      throw new Error(msg)
     }
 
     const reader = res.body.getReader()
@@ -125,7 +134,7 @@ async function sendMessage() {
   } catch (err) {
     console.error('AI Reply Error:', err)
     messages.value[replyIndex].loading = false
-    messages.value[replyIndex].text = '网络连接异常或服务未启动，请重试。'
+    messages.value[replyIndex].text = err?.message || '网络连接异常或服务未启动，请重试。'
   } finally {
     isLoading.value = false
     messages.value[replyIndex].loading = false
@@ -140,14 +149,13 @@ async function sendMessage() {
     </div>
     <div class="ai-header">
       <div>
-        <h4>🤖 智能学习助教</h4>
+        <h4>智能学习助教</h4>
         <select v-if="isLoggedIn" v-model="selectedModel" class="model-selector">
           <option v-for="m in availableModels" :key="m.id" :value="m.id">
             {{ m.name }}
           </option>
         </select>
       </div>
-      <button class="close-btn" @click="isOpen = false">✕</button>
     </div>
 
     <!-- 未登录状态 -->
@@ -198,12 +206,13 @@ async function sendMessage() {
   box-shadow: 6px 0 20px rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
-  z-index: 99;
+  z-index: 110;
   transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ai-drawer.is-open {
   left: 0;
+  z-index: 130;
 }
 
 .toggle-btn {
@@ -226,10 +235,15 @@ async function sendMessage() {
   letter-spacing: 4px;
   box-shadow: 4px 4px 10px rgba(16,185,129,0.2);
   user-select: none;
+  z-index: 120;
 }
 
 .toggle-btn:hover {
   background: #059669;
+}
+
+.ai-drawer.is-open .toggle-btn {
+  z-index: 140;
 }
 
 .ai-header {
@@ -269,19 +283,6 @@ async function sendMessage() {
   color: #475569;
   outline: none;
 }
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: #64748b;
-}
-
-.close-btn:hover {
-  color: #f43f5e;
-}
-
 .ai-body {
   flex: 1;
   overflow-y: auto;
@@ -382,5 +383,12 @@ async function sendMessage() {
   0% { opacity: .2; }
   20% { opacity: 1; }
   100% { opacity: .2; }
+}
+
+@media (max-width: 768px) {
+  .toggle-btn {
+    top: 24px;
+    height: 88px;
+  }
 }
 </style>

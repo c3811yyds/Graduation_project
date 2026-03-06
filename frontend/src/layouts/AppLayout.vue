@@ -31,6 +31,7 @@ async function loadMe() {
     return
   }
   try {
+    // [后端映射]: GET /api/users/me -> 获取当前登录用户信息
     const res = await http.get('/users/me')
     me.value = res.data.data || null
   } catch {

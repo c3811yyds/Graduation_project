@@ -103,6 +103,7 @@ async function loadNotes() {
   if (!isLoggedIn.value) return
   error.value = ''
   try {
+    // [后端映射]: GET /api/notes -> 获取当前用户笔记列表
     const res = await http.get('/notes')
     notes.value = res.data.data || []
     
@@ -136,13 +137,14 @@ async function createNote() {
   if (!isLoggedIn.value) return
   try {
     const title = '新建笔记 ' + (notes.value.length + 1)
+    // [后端映射]: POST /api/notes -> 创建新笔记
     const res = await http.post('/notes', { title })
     const newNote = res.data.data
     notes.value.unshift(newNote) // Add to top
     activeNoteId.value = newNote.id
     syncEditState()
   } catch (e) {
-    error.value = '创建笔记失败'
+    error.value = e?.response?.data?.message || '创建笔记失败'
   }
 }
 
@@ -157,8 +159,10 @@ async function saveNote() {
 
   isSaving.value = true
   saveSuccess.value = false
+  error.value = ''
   
   try {
+    // [后端映射]: PUT /api/notes/<id> -> 更新笔记标题与正文
     const res = await http.put(`/notes/${activeNoteId.value}`, {
       title: editTitle.value,
       content: editContent.value
@@ -180,7 +184,9 @@ async function saveNote() {
     
   } catch (e) {
     isSaving.value = false
-    alert('保存云端失败，请检查网络')
+    const msg = e?.response?.data?.message || '保存云端失败，请检查网络'
+    error.value = msg
+    alert(msg)
   }
 }
 
@@ -188,6 +194,7 @@ async function deleteNote() {
   if (!activeNote.value || !confirm('确定要永久删除这篇笔记吗？')) return
   
   try {
+    // [后端映射]: DELETE /api/notes/<id> -> 删除指定笔记
     await http.delete(`/notes/${activeNoteId.value}`)
     notes.value = notes.value.filter(n => n.id !== activeNoteId.value)
     
@@ -242,13 +249,14 @@ onMounted(() => {
   border-left: 1px solid #e1e4e8;
   box-shadow: -6px 0 20px rgba(0,0,0,0.06);
   transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 99;
+  z-index: 110;
   display: flex;
   flex-direction: column;
 }
 
 .memo-sidebar.memo-open {
   right: 0;
+  z-index: 130;
 }
 
 .toggle-btn {
@@ -271,9 +279,15 @@ onMounted(() => {
   letter-spacing: 4px;
   box-shadow: -4px 4px 10px rgba(37,99,235,0.2);
   user-select: none;
+  z-index: 120;
 }
+
 .toggle-btn:hover {
   background: #1d4ed8;
+}
+
+.memo-sidebar.memo-open .toggle-btn {
+  z-index: 140;
 }
 
 .memo-content {
@@ -404,4 +418,10 @@ onMounted(() => {
 .btn-primary:hover { background: #1d4ed8; box-shadow: 0 4px 6px rgba(37,99,235,0.2); }
 .btn-danger { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
 .btn-danger:hover { background: #fecaca; color: #b91c1c; }
+@media (max-width: 768px) {
+  .toggle-btn {
+    top: 128px;
+    height: 88px;
+  }
+}
 </style>

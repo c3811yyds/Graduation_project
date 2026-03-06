@@ -410,6 +410,7 @@ async function loadMe() {
     return;
   }
   try {
+    // [后端映射]: GET /api/users/me -> 获取当前登录用户信息
     const res = await http.get("/users/me");
     me.value = res.data.data || null;
   } catch {
@@ -434,6 +435,9 @@ async function loadLearningData() {
   if (isStudent.value && !isEnrolled.value) {
     studentProgressData.value = { progress: 0, completed: 0, total: 0 };
   }
+  // [后端映射]: GET /api/courses/<id>/contents -> 获取课程资源列表
+  // [后端映射]: GET /api/courses/<id>/messages -> 获取课程留言列表
+  // [后端映射]: GET /api/courses/<id>/reviews -> 获取课程评价列表
   const reqs = [
     http.get(`/courses/${courseId}/contents`),
     http.get(`/courses/${courseId}/messages`),
@@ -441,8 +445,10 @@ async function loadLearningData() {
   ];
 
   if (isStudent.value) {
+    // [后端映射]: GET /api/courses/<id>/progress -> 学生查看个人进度
     reqs.push(http.get(`/courses/${courseId}/progress`));
   } else if (isTeacherOwner.value) {
+    // [后端映射]: GET /api/courses/<id>/students -> 教师查看学生与进度
     reqs.push(http.get(`/courses/${courseId}/students`));
   }
 
@@ -595,6 +601,7 @@ async function toggleReviewLike(r) {
     return;
   }
   try {
+    // [后端映射]: POST /api/courses/<id>/reviews/<review_id>/like -> 点赞/取消点赞
     const res = await http.post(`/courses/${courseId}/reviews/${r.id}/like`);
     r.liked = !r.liked;
     r.likes_count = res.data.data.likes_count;
@@ -609,6 +616,7 @@ async function replyReview(r) {
   const replyContent = prompt("请输入回复内容：", r.reply_content || "");
   if (replyContent === null) return;
   try {
+    // [后端映射]: PUT /api/courses/<id>/reviews/<review_id>/reply -> 教师回复评价
     await http.put(`/courses/${courseId}/reviews/${r.id}/reply`, {
       reply_content: replyContent,
     });
@@ -684,6 +692,7 @@ async function uploadContent() {
   async function openContent(contentId) {
     try {
       if (isStudent.value) {
+        // [后端映射]: POST /api/contents/<id>/view -> 学生查看资源后记录进度
         await http.post(`/contents/${contentId}/view`);
         await loadLearningData();
       }
@@ -709,6 +718,7 @@ async function uploadContent() {
 async function downloadContent(contentId) {
     try {
       if (isStudent.value) {
+        // [后端映射]: POST /api/contents/<id>/view -> 下载前同样记录学习行为
         await http.post(`/contents/${contentId}/view`);
         await loadLearningData();
       }
@@ -737,6 +747,7 @@ async function deleteContent(contentId) {
     const newTitle = prompt("修改课件名称", oldTitle);
     if (!newTitle || newTitle.trim() === "" || newTitle === oldTitle) return;
     try {
+      // [后端映射]: PUT /api/contents/<id> -> 修改课件标题
       await http.put(`/contents/${contentId}`, { title: newTitle });
       await loadLearningData();
     } catch (e) {

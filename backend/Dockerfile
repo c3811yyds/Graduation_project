@@ -13,9 +13,6 @@ COPY third_party/Sensitive-lexicon /app/third_party/Sensitive-lexicon
 
 WORKDIR /app/backend
 
-# Let backend load lexicon from bundled submodule path
-ENV SENSITIVE_LEXICON_DIR=/app/third_party/Sensitive-lexicon/Vocabulary
-
 EXPOSE 5000
 
 CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]

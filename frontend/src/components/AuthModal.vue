@@ -41,6 +41,7 @@ async function sendCode() {
   }
   error.value = ''
   try {
+    // [后端映射]: POST /api/auth/send-code -> 发送邮箱验证码
     await http.post('/auth/send-code', { email: email.value })
     cooldown.value = 60
     timer = setInterval(() => {
@@ -62,6 +63,7 @@ async function submit() {
   loading.value = true
   try {
     if (props.mode === 'register') {
+      // [后端映射]: POST /api/auth/register -> 新用户注册
       await http.post('/auth/register', {
         username: username.value,
         email: email.value,
@@ -71,6 +73,7 @@ async function submit() {
         invite_code: inviteCode.value,
       })
     }
+    // [后端映射]: POST /api/auth/login -> 登录并获取 JWT
     const res = await http.post('/auth/login', {
       username: username.value,
       password: password.value,
