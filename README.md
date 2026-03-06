@@ -101,6 +101,9 @@
      - DATABASE_URL=mysql+pymysql://你的账号:你的密码@127.0.0.1:3306/graduation_project?charset=utf8mb4
      - SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
      - MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD=填入你的发信邮箱配置(用于发送注册验证码)
+     - ADMIN_INIT_EMAIL=可选，首次启动时要提升/创建的管理员邮箱
+     - ADMIN_INIT_USERNAME=可选，默认 admin，仅在自动创建管理员时使用
+     - ADMIN_INIT_PASSWORD=可选，自动创建管理员时使用的初始密码
 
    - (8) 运行服务 (默认监听在 5000 端口)
      - python app.py
@@ -162,8 +165,8 @@
     - username (唯一)  （用户名/昵称字段，系统内不可重复）
     - email (唯一)  （邮箱字段，用于登录与验证码接收，系统内不可重复）
     - password_hash（密码哈希值，存储加密结果而非明文密码）
-    - role (student/teacher)  （角色字段，决定用户权限范围）
-    - status (当前使用 active)  （账号状态字段，用于标记账号是否可用）
+    - role (student/teacher/admin)  （角色字段，决定用户权限范围）
+    - status (active/disabled)  （账号状态字段，用于标记账号是否可用）
     - 其他信息: gender, hobby, created_at, updated_at（gender 为性别，hobby 为爱好，created_at 为创建时间，updated_at 为更新时间）
 
 2. Table 2: courses (课程表)
@@ -264,7 +267,7 @@
 
   - 注：本节按当前后端蓝图实际路由整理（backend/app.py + routes_*.py）。
   - 注：路径参数在 Flask 中是 {int:xxx}，文档统一简写为 {id}。
-  - 注：当前路由实现文件为 routes_account.py（认证/用户）与 routes_course.py（课程/内容），routes_auth.py 为兼容导出入口。
+  - 注：当前路由实现文件为 routes_account.py（认证/用户）、routes_course.py（课程/内容）与 routes_admin.py（管理员），routes_auth.py 为兼容导出入口。
 
 1. 【认证及用户】
     - POST /api/auth/send-code : 发送邮箱验证码
@@ -324,6 +327,18 @@
 7. 【智能 AI 实训助手】
     - POST /api/ai/chat : 教师与学生的智能助教对话生成接口，接入大语言模型流式输出
     - 集成功能: 全局左侧栏滑动抽屉随时唤出，利用 SSE (Server-Sent Events) 打字机效果呈现思考过程
+
+8. 【管理员后台】
+    - GET /api/admin/overview : 获取管理员首页概览统计
+    - GET /api/admin/analytics : 获取管理员视角的全课程选修/评分总览
+    - GET /api/admin/users : 分页获取用户列表（支持关键词、角色、状态筛选）
+    - PATCH /api/admin/users/{id}/status : 启用或停用指定账号
+    - GET /api/admin/reviews : 获取全站评价列表
+    - DELETE /api/admin/reviews/{id} : 删除指定评价
+    - GET /api/admin/messages : 获取全站留言列表
+    - DELETE /api/admin/messages/{id} : 删除指定留言
+    - GET /api/admin/invite-codes : 获取教师邀请码列表
+    - POST /api/admin/invite-codes : 生成教师邀请码
 
 七、系统流转与突破功能点总结
 

@@ -25,7 +25,7 @@ services:
       - ./backend/.env
     # environment:
     #  - FLASK_ENV=production
-    #  - DATABASE_URL=mysql+pymysql://admin:yourpassword@db:3306/graduation_db
+    #  - DATABASE_URL=mysql+pymysql://admin:yourpassword@db:3306/graduation_project?charset=utf8mb4
     depends_on:
       - db
     volumes:
