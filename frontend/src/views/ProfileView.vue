@@ -57,29 +57,33 @@
           <h3>修改密码</h3>
           <p class="muted">通过邮箱验证码修改密码，验证码 2 分钟有效，60 秒后可重发</p>
 
-          <div class="form-group">
-            <label>邮箱验证码</label>
-            <div class="code-row">
-              <input class="form-control" v-model="pwdCode" placeholder="请输入邮箱验证码" />
-              <button class="btn code-btn" :disabled="pwdCooldown > 0" @click="sendPasswordCode">
-                {{ pwdCooldown > 0 ? `${pwdCooldown}秒` : '发送验证码' }}
+          <div class="password-form">
+            <div class="form-group">
+              <label>邮箱验证码</label>
+              <div class="code-row">
+                <input class="form-control" v-model="pwdCode" placeholder="请输入邮箱验证码" />
+                <button class="btn code-btn" :disabled="pwdCooldown > 0" @click="sendPasswordCode">
+                  {{ pwdCooldown > 0 ? `${pwdCooldown}秒` : '发送验证码' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>新密码</label>
+              <input class="form-control" type="password" v-model="newPassword" placeholder="请输入新密码（至少6位）" />
+            </div>
+
+            <div class="form-group">
+              <label>确认新密码</label>
+              <input class="form-control" type="password" v-model="confirmPassword" placeholder="请再次输入新密码" />
+            </div>
+
+            <div class="password-actions">
+              <button class="btn btn-primary save-btn" @click="changePassword">
+                确认修改密码
               </button>
             </div>
           </div>
-
-          <div class="form-group">
-            <label>新密码</label>
-            <input class="form-control" type="password" v-model="newPassword" placeholder="请输入新密码（至少6位）" />
-          </div>
-
-          <div class="form-group">
-            <label>确认新密码</label>
-            <input class="form-control" type="password" v-model="confirmPassword" placeholder="请再次输入新密码" />
-          </div>
-
-          <button class="btn btn-primary save-btn" @click="changePassword">
-            确认修改密码
-          </button>
         </div>
       </div>
     </div>
@@ -258,6 +262,20 @@ onUnmounted(() => {
   margin: 0 0 16px 0;
   font-size: 13px;
   color: #64748b;
+}
+
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.password-form .form-group {
+  gap: 10px;
+}
+
+.password-actions {
+  padding-top: 6px;
 }
 
 .form-group {
