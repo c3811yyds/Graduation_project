@@ -52,13 +52,42 @@
             返回首页
           </button>
         </div>
+
+        <div class="password-section">
+          <h3>修改密码</h3>
+          <p class="muted">通过邮箱验证码修改密码，验证码 2 分钟有效，60 秒后可重发</p>
+
+          <div class="form-group">
+            <label>邮箱验证码</label>
+            <div class="code-row">
+              <input class="form-control" v-model="pwdCode" placeholder="请输入邮箱验证码" />
+              <button class="btn code-btn" :disabled="pwdCooldown > 0" @click="sendPasswordCode">
+                {{ pwdCooldown > 0 ? `${pwdCooldown}秒` : '发送验证码' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>新密码</label>
+            <input class="form-control" type="password" v-model="newPassword" placeholder="请输入新密码（至少6位）" />
+          </div>
+
+          <div class="form-group">
+            <label>确认新密码</label>
+            <input class="form-control" type="password" v-model="confirmPassword" placeholder="请再次输入新密码" />
+          </div>
+
+          <button class="btn btn-primary save-btn" @click="changePassword">
+            确认修改密码
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import http from '../api/http';
 
@@ -68,6 +97,11 @@ const form = ref({
   gender: '未知',
   hobby: ''
 });
+const pwdCode = ref('');
+const newPassword = ref('');
+const confirmPassword = ref('');
+const pwdCooldown = ref(0);
+let pwdTimer = null;
 
 onMounted(async () => {
   try {
@@ -99,6 +133,59 @@ async function saveProfile() {
     alert(e?.response?.data?.message || "更新失败，请重试");
   }
 }
+
+async function sendPasswordCode() {
+  try {
+    // [后端映射]: POST /api/users/me/password-code -> 发送修改密码验证码
+    await http.post('/users/me/password-code');
+    pwdCooldown.value = 60;
+    if (pwdTimer) clearInterval(pwdTimer);
+    pwdTimer = setInterval(() => {
+      pwdCooldown.value--;
+      if (pwdCooldown.value <= 0) {
+        clearInterval(pwdTimer);
+        pwdTimer = null;
+      }
+    }, 1000);
+  } catch (e) {
+    alert(e?.response?.data?.message || '验证码发送失败');
+  }
+}
+
+async function changePassword() {
+  if (!pwdCode.value.trim()) {
+    alert('请输入邮箱验证码');
+    return;
+  }
+  if (!newPassword.value || newPassword.value.length < 6) {
+    alert('新密码至少 6 位');
+    return;
+  }
+  if (newPassword.value !== confirmPassword.value) {
+    alert('两次输入的新密码不一致');
+    return;
+  }
+  try {
+    // [后端映射]: PATCH /api/users/me/password -> 验证码通过后修改当前用户密码
+    await http.patch('/users/me/password', {
+      verify_code: pwdCode.value.trim(),
+      new_password: newPassword.value,
+    });
+    alert('密码修改成功');
+    pwdCode.value = '';
+    newPassword.value = '';
+    confirmPassword.value = '';
+  } catch (e) {
+    alert(e?.response?.data?.message || '密码修改失败，请重试');
+  }
+}
+
+onUnmounted(() => {
+  if (pwdTimer) {
+    clearInterval(pwdTimer);
+    pwdTimer = null;
+  }
+});
 </script>
 
 <style scoped>
@@ -155,6 +242,22 @@ async function saveProfile() {
   display: flex;
   flex-direction: column;
   gap: 30px;
+}
+
+.password-section {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 28px;
+}
+
+.password-section h3 {
+  margin: 0 0 8px 0;
+  color: #1e293b;
+}
+
+.password-section .muted {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: #64748b;
 }
 
 .form-group {
@@ -268,5 +371,15 @@ async function saveProfile() {
 .return-btn:hover {
   background-color: #f8fafc;
   color: #475569;
+}
+
+.code-row {
+  display: flex;
+  gap: 10px;
+}
+
+.code-btn {
+  white-space: nowrap;
+  min-width: 110px;
 }
 </style>

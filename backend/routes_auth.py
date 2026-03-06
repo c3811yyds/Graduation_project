@@ -182,7 +182,11 @@ def allowed_ext(filename: str):
 
 # ---------- auth ----------
 
-def send_email_code(email: str, code: str):
+PASSWORD_VERIFY_CODE_EXPIRE_MINUTES = 2
+PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS = 60
+
+
+def send_email_code(email: str, code: str, scene_name: str = "账号注册", valid_minutes: int = 5):
     # This expects env variables to send real emails, else prints to console
     mail_server = os.getenv("MAIL_SERVER")
     mail_port = as_int(os.getenv("MAIL_PORT")) or 465
@@ -199,10 +203,10 @@ def send_email_code(email: str, code: str):
 
     try:
         from email.utils import formataddr
-        msg = MIMEText(f"【智能学习网站】您的注册验证码为：{code}，5分钟内有效。", 'plain', 'utf-8')
+        msg = MIMEText(f"【智能学习网站】您的{scene_name}验证码为：{code}，{valid_minutes}分钟内有效。", 'plain', 'utf-8')
         msg['From'] = formataddr((str(Header("学习平台", 'utf-8')), mail_user))
         msg['To'] = email
-        msg['Subject'] = Header("账号注册验证码", 'utf-8')
+        msg['Subject'] = Header(f"{scene_name}验证码", 'utf-8')
 
         if mail_port in [465]:
             server = smtplib.SMTP_SSL(mail_server, mail_port)
@@ -218,6 +222,24 @@ def send_email_code(email: str, code: str):
         print("发送邮件失败:", e)
         return False
 
+
+def upsert_verify_code(email: str, expire_minutes: int):
+    # 统一验证码写入：覆盖旧验证码，确保一个邮箱同一时间只保留一条记录
+    code = str(random.randint(100000, 999999))
+    expires = now() + timedelta(minutes=expire_minutes)
+    VerifyCode.query.filter_by(email=email).delete()
+    db.session.add(VerifyCode(email=email, code=code, expires_at=expires))
+    db.session.commit()
+    return code, expires
+
+
+def password_code_cooldown_left_seconds(vc: VerifyCode | None):
+    # 密码验证码固定 2 分钟有效，因此可用“剩余有效秒数 - 60”得到冷却剩余秒数
+    if not vc:
+        return 0
+    remaining = int((vc.expires_at - now()).total_seconds())
+    return max(0, remaining - PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS)
+
 # [前端对应]: 登录注册弹窗 (AuthModal.vue) -> 点击“发送验证码”
 # [业务逻辑]: 生成并保存邮箱验证码，写入过期时间并尝试发送邮件
 @auth_bp.post("/send-code")
@@ -230,16 +252,9 @@ def send_code():
     if User.query.filter_by(email=email).first():
         return err("该邮箱已注册账号，请直接登录", status=409)
         
-    code = str(random.randint(100000, 999999))
-    expires = now() + timedelta(minutes=5)
+    code, _ = upsert_verify_code(email, expire_minutes=5)
     
-    # 清理旧验证码并插入新验证码
-    VerifyCode.query.filter_by(email=email).delete()
-    vc = VerifyCode(email=email, code=code, expires_at=expires)
-    db.session.add(vc)
-    db.session.commit()
-    
-    if send_email_code(email, code):
+    if send_email_code(email, code, scene_name="账号注册", valid_minutes=5):
         return ok(None, "验证码已发送，请注意查收")
     else:
         return err("验证码发送失败，请检查系统邮件配置", status=500)
@@ -350,6 +365,71 @@ def login():
     )
 
 
+# [前端对应]: 登录弹窗 (AuthModal.vue) -> 登录页内“忘记密码”发送验证码
+# [业务逻辑]: 给已注册邮箱发送重置密码验证码（2分钟有效，60秒内不可重复发送）
+@auth_bp.post("/send-reset-code")
+def send_reset_code():
+    body = request.get_json(silent=True) or {}
+    email = (body.get("email") or "").strip()
+    if "@" not in email:
+        return err("请输入有效的邮箱地址")
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return err("该邮箱未注册账号", status=404)
+
+    vc = VerifyCode.query.filter_by(email=email).first()
+    cooldown_left = password_code_cooldown_left_seconds(vc)
+    if cooldown_left > 0:
+        return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
+
+    code, _ = upsert_verify_code(email, expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES)
+    if send_email_code(
+        email,
+        code,
+        scene_name="找回密码",
+        valid_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
+    ):
+        return ok(
+            {"expires_seconds": PASSWORD_VERIFY_CODE_EXPIRE_MINUTES * 60, "cooldown_seconds": PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS},
+            "验证码已发送，请注意查收",
+        )
+    return err("验证码发送失败，请检查系统邮件配置", status=500)
+
+
+# [前端对应]: 登录弹窗 (AuthModal.vue) -> 忘记密码页提交“验证码 + 新密码”
+# [业务逻辑]: 校验邮箱验证码后，重置目标账号密码
+@auth_bp.post("/reset-password")
+def reset_password():
+    body = request.get_json(silent=True) or {}
+    email = (body.get("email") or "").strip()
+    verify_code = (body.get("verify_code") or "").strip()
+    new_password = body.get("new_password") or ""
+
+    if "@" not in email:
+        return err("请输入有效的邮箱地址")
+    if not verify_code:
+        return err("请输入邮箱验证码")
+    if len(new_password) < 6:
+        return err("新密码至少 6 位")
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return err("该邮箱未注册账号", status=404)
+
+    vc = VerifyCode.query.filter_by(email=email).first()
+    if not vc or vc.code != verify_code:
+        return err("验证码错误")
+    if vc.expires_at < now():
+        return err("验证码已过期，请重新获取")
+
+    user.password_hash = generate_password_hash(new_password)
+    user.updated_at = now()
+    db.session.delete(vc)
+    db.session.commit()
+    return ok(None, "密码重置成功，请使用新密码登录")
+
+
 # [前端对应]: 全局 (App.vue/router) -> 路由守卫/进入页面时初始化身份
 # [业务逻辑]: 解析请求头里的 Token 来获取当前使用者的角色和基础信息
 @user_bp.get("/me")
@@ -409,6 +489,65 @@ def update_profile():
         "gender": u.gender,
         "hobby": u.hobby
     }, "个人资料更新成功")
+
+
+# [前端对应]: 个人中心 (ProfileView.vue) -> 点击“发送验证码”用于修改密码
+# [业务逻辑]: 给当前登录用户邮箱发送修改密码验证码（2分钟有效，60秒内不可重复发送）
+@user_bp.post("/me/password-code")
+@jwt_required()
+def send_my_password_code():
+    u = current_user()
+    if not u:
+        return err("请求未授权", status=401)
+
+    vc = VerifyCode.query.filter_by(email=u.email).first()
+    cooldown_left = password_code_cooldown_left_seconds(vc)
+    if cooldown_left > 0:
+        return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
+
+    code, _ = upsert_verify_code(u.email, expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES)
+    if send_email_code(
+        u.email,
+        code,
+        scene_name="修改密码",
+        valid_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
+    ):
+        return ok(
+            {"expires_seconds": PASSWORD_VERIFY_CODE_EXPIRE_MINUTES * 60, "cooldown_seconds": PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS},
+            "验证码已发送，请注意查收",
+        )
+    return err("验证码发送失败，请检查系统邮件配置", status=500)
+
+
+# [前端对应]: 个人中心 (ProfileView.vue) -> 填写验证码后提交新密码
+# [业务逻辑]: 校验当前账号邮箱验证码，通过后更新密码哈希
+@user_bp.patch("/me/password")
+@jwt_required()
+def change_my_password():
+    u = current_user()
+    if not u:
+        return err("请求未授权", status=401)
+
+    body = request.get_json(silent=True) or {}
+    verify_code = (body.get("verify_code") or "").strip()
+    new_password = body.get("new_password") or ""
+
+    if not verify_code:
+        return err("请输入邮箱验证码")
+    if len(new_password) < 6:
+        return err("新密码至少 6 位")
+
+    vc = VerifyCode.query.filter_by(email=u.email).first()
+    if not vc or vc.code != verify_code:
+        return err("验证码错误")
+    if vc.expires_at < now():
+        return err("验证码已过期，请重新获取")
+
+    u.password_hash = generate_password_hash(new_password)
+    u.updated_at = now()
+    db.session.delete(vc)
+    db.session.commit()
+    return ok(None, "密码修改成功")
 
 
 # ---------- courses ----------
