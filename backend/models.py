@@ -10,7 +10,7 @@ class User(db.Model):
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default="student")  # student/teacher
+    role = db.Column(db.String(20), nullable=False, default="student")  # student/teacher/admin
     status = db.Column(db.String(20), nullable=False, default="active")
     gender = db.Column(db.String(10), default="未知")
     hobby = db.Column(db.String(255), default="")

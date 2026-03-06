@@ -47,7 +47,10 @@ def current_user():
     uid = as_int(get_jwt_identity())
     if not uid:
         return None
-    return User.query.get(uid)
+    user = User.query.get(uid)
+    if not user or user.status != "active":
+        return None
+    return user
 
 
 def is_teacher(u: User):
@@ -186,8 +189,7 @@ def list_courses():
     - 未登录也可浏览课程
     - 登录后学生可看到 is_enrolled / enrollment_status
     """
-    uid = as_int(get_jwt_identity()) if get_jwt_identity() else None
-    u = User.query.get(uid) if uid else None
+    u = current_user()
 
     query = Course.query
     if u and is_teacher(u):
@@ -204,8 +206,7 @@ def list_courses():
 @course_bp.get("/<int:course_id>")
 @jwt_required(optional=True)
 def get_course(course_id):
-    uid = as_int(get_jwt_identity()) if get_jwt_identity() else None
-    u = User.query.get(uid) if uid else None
+    u = current_user()
 
     c = course_by_id(course_id)
     if not c:
@@ -727,6 +728,8 @@ def access_content_file(content_id):
             uid = as_int(payload.get("sub"))
             if uid:
                 u = User.query.get(uid)
+                if u and u.status != "active":
+                    u = None
         except Exception:
             pass
 

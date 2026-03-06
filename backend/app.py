@@ -4,6 +4,7 @@ import os
 from flask_cors import CORS
 from extensions import db, jwt
 from routes_account import auth_bp, user_bp
+from routes_admin import admin_bp, bootstrap_admin_account
 from routes_course import course_bp, content_bp
 from routes_note import note_bp
 from routes_ai import ai_bp
@@ -46,10 +47,12 @@ def create_app():
     with app.app_context():
         import models
         db.create_all()
+        bootstrap_admin_account()
 
     # 蓝图注册
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(course_bp)
     app.register_blueprint(content_bp)
     app.register_blueprint(note_bp)

@@ -51,7 +51,10 @@ def current_user():
     uid = as_int(get_jwt_identity())
     if not uid:
         return None
-    return User.query.get(uid)
+    user = User.query.get(uid)
+    if not user or user.status != "active":
+        return None
+    return user
 
 
 def is_teacher(u: User):
@@ -60,6 +63,10 @@ def is_teacher(u: User):
 
 def is_student(u: User):
     return role_of(u) == "student"
+
+
+def is_admin(u: User):
+    return role_of(u) == "admin"
 
 
 def course_by_id(course_id: int):
@@ -244,6 +251,8 @@ def login():
     if not u or not check_password_hash(u.password_hash, password):
         return err("用户名/邮箱或密码错误", status=401)
 
+    if u.status != "active":
+        return err("账号已被停用", status=403)
     token = create_access_token(identity=str(u.id))
     return ok(
         {"token": token, "user": {"id": u.id, "username": u.username, "role": u.role}},
@@ -327,7 +336,9 @@ def me():
     return ok({
         "id": u.id, 
         "username": u.username, 
+        "email": u.email,
         "role": u.role,
+        "status": u.status,
         "gender": getattr(u, 'gender', '未知'),
         "hobby": getattr(u, 'hobby', '')
     })
@@ -371,7 +382,9 @@ def update_profile():
     return ok({
         "id": u.id, 
         "username": u.username, 
+        "email": u.email,
         "role": u.role,
+        "status": u.status,
         "gender": u.gender,
         "hobby": u.hobby
     }, "个人资料更新成功")
@@ -451,6 +464,7 @@ def user_analytics():
         # 学生端：按课程展示进度
         enrollments = Enrollment.query.filter_by(student_id=u.id).all()
         course_names = []
+        course_ids = []
         progress_data = [] # 百分比
         completed_counts = []
         
@@ -458,6 +472,7 @@ def user_analytics():
             c = course_by_id(en.course_id)
             if c and c.status == "published":
                 course_names.append(c.title)
+                course_ids.append(c.id)
                 contents = Content.query.filter_by(course_id=c.id).all()
                 total = len(contents)
                 if total > 0:
@@ -475,6 +490,7 @@ def user_analytics():
         return ok({
             "role": "student",
             "courseNames": course_names,
+            "courseIds": course_ids,
             "progressRates": progress_data,
             "completedCounts": completed_counts
         })
@@ -483,6 +499,7 @@ def user_analytics():
         # 教师端：只展示"已发布"课程的选修人数分布
         courses = Course.query.filter_by(teacher_id=u.id, status="published").all()
         course_names = []
+        course_ids = []
         enroll_counts = []
         review_averages = []
         
@@ -490,6 +507,7 @@ def user_analytics():
         
         for c in courses:
             course_names.append(c.title)
+            course_ids.append(c.id)
             
             # 选修人数统计
             c_enrolled = Enrollment.query.filter_by(course_id=c.id).count()
@@ -504,6 +522,7 @@ def user_analytics():
         return ok({
             "role": "teacher",
             "courseNames": course_names,
+            "courseIds": course_ids,
             "enrollCounts": enroll_counts,
             "reviewAverages": review_averages,
             "totalStudents": total_students

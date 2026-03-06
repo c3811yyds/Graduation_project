@@ -3,6 +3,7 @@ import HomeView from "../views/HomeView.vue";
 import CourseDetailView from "../views/CourseDetailView.vue";
 import DashboardView from "../views/DashboardView.vue";
 import ProfileView from "../views/ProfileView.vue";
+import AdminView from "../views/AdminView.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,6 +28,11 @@ const router = createRouter({
       path: "/profile",
       name: "profile",
       component: ProfileView,
+    },
+    {
+      path: "/admin",
+      name: "admin",
+      component: AdminView,
     },
     {
       path: "/:pathMatch(.*)*",

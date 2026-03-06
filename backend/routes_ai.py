@@ -2,17 +2,35 @@ import os
 from flask import Blueprint, request, Response, stream_with_context
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
+from models import User
 from sensitive_filter import reject_sensitive_fields
 
 # 创建 AI 专属蓝图
 ai_bp = Blueprint("ai", __name__, url_prefix="/api/ai")
+
+
+def as_int(v):
+    try:
+        return int(v)
+    except Exception:
+        return None
+
+
+def current_user():
+    uid = as_int(get_jwt_identity())
+    if not uid:
+        return None
+    user = User.query.get(uid)
+    if not user or user.status != "active":
+        return None
+    return user
 
 # [前端对应]: 左侧 AI 助教抽屉 (AiChatSidebar.vue) -> 发送问题并接收流式回复
 # [业务逻辑]: 校验登录与敏感词后，转发到大模型并以 SSE 持续回传分片内容
 @ai_bp.post("/chat")
 @jwt_required()
 def ai_chat():
-    user_id = get_jwt_identity()
+    user = current_user()
     body = request.get_json(silent=True) or {}
     user_message = body.get("message", "").strip()
     # 动态获取前端选择的模型，默认退回给 Qwen/Qwen2.5-7B-Instruct
@@ -24,9 +42,15 @@ def ai_chat():
     def err(message="error", status=400):
         return {"code": status, "message": message, "data": None}, status
 
+    if not user:
+        return err("请先登录", status=401)
+
     sensitive_err = reject_sensitive_fields({"AI消息内容": user_message}, err, scene="content")
     if sensitive_err:
         return sensitive_err
+
+    if not user:
+        return err("请先登录", status=401)
 
     api_key = os.getenv("SILICON_API_KEY")
 

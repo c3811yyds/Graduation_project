@@ -24,7 +24,10 @@ def current_user():
     uid = as_int(get_jwt_identity())
     if not uid:
         return None
-    return User.query.get(uid)
+    user = User.query.get(uid)
+    if not user or user.status != "active":
+        return None
+    return user
 
 def now():
     return datetime.utcnow()

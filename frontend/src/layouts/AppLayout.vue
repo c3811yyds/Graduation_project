@@ -52,6 +52,10 @@ function goDashboard() {
   router.push('/dashboard')
 }
 
+function goAdmin() {
+  router.push('/admin')
+}
+
 function logout() {
   sessionStorage.removeItem('token')
   me.value = null
@@ -78,6 +82,7 @@ onMounted(() => {
           <span class="user">{{ me.username }} ({{ me.role }})</span>
           <button class="btn" @click="goProfile" style="margin-left:8px;">个人中心</button>
           <button class="btn" @click="goDashboard" style="margin-left:8px;">数据总览</button>
+          <button v-if="me.role === 'admin'" class="btn" @click="goAdmin" style="margin-left:8px;">管理员后台</button>
           <button class="btn" @click="logout" style="margin-left:8px;">退出登录</button>
         </template>
         <template v-else>
