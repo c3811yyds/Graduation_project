@@ -1,6 +1,5 @@
 import os
 from flask import Blueprint, request, Response, stream_with_context
-from extensions import jwt
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
 from sensitive_filter import reject_sensitive_fields
@@ -8,6 +7,8 @@ from sensitive_filter import reject_sensitive_fields
 # 创建 AI 专属蓝图
 ai_bp = Blueprint("ai", __name__, url_prefix="/api/ai")
 
+# [前端对应]: 左侧 AI 助教抽屉 (AiChatSidebar.vue) -> 发送问题并接收流式回复
+# [业务逻辑]: 校验登录与敏感词后，转发到大模型并以 SSE 持续回传分片内容
 @ai_bp.post("/chat")
 @jwt_required()
 def ai_chat():

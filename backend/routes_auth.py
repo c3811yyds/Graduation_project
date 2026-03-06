@@ -11,7 +11,7 @@ from email.mime.text import MIMEText
 from email.header import Header
 
 from flask import Blueprint, current_app, jsonify, request, send_file
-from flask_jwt_extended import create_access_token, decode_token, get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
@@ -1308,29 +1308,3 @@ def user_analytics():
     return err("无权限访问大屏数据", status=403)
 
 
-# ---------- upload helpers ----------
-
-def upload_dir() -> Path:
-    p = current_app.config.get("UPLOAD_DIR") or os.path.join(current_app.root_path, "uploads")
-    p = Path(p).resolve()
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-def allowed_ext(filename: str):
-    if "." not in filename:
-        return False
-    ext = filename.rsplit(".", 1)[-1].lower()
-    allowed = {
-        # 视频 (Video) - 通常浏览器支持 mp4, webm, ogg预览
-        "mp4", "webm", "ogg", "mov", "avi",
-        # 音频 (Audio) - 通常浏览器支持 mp3, ogg, wav预览
-        "mp3", "wav", "flac", "aac", "m4a",
-        # 图片 (Image) - 浏览器原生支持预览
-        "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico",
-        # 文档 (Document) - pdf可原生存预览，其余通常需下载或Office Web Viewer
-        "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "csv", "md",
-        # 压缩包等 (Archive)
-        "zip", "rar", "7z", "tar", "gz"
-    }
-    return ext in allowed
