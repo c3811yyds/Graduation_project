@@ -3,7 +3,8 @@ from dotenv import load_dotenv
 import os
 from flask_cors import CORS
 from extensions import db, jwt
-from routes_auth import auth_bp, user_bp, course_bp, content_bp
+from routes_account import auth_bp, user_bp
+from routes_course import course_bp, content_bp
 from routes_note import note_bp
 from routes_ai import ai_bp
 

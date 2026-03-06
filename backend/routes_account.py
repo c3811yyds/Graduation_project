@@ -1,0 +1,529 @@
+﻿from __future__ import annotations
+
+from datetime import datetime
+import os
+import uuid
+import random
+from datetime import timedelta
+import smtplib
+from email.mime.text import MIMEText
+from email.header import Header
+
+from flask import Blueprint, jsonify, request
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from extensions import db
+from models import User, Course, Enrollment, Content, Progress, Review, VerifyCode, TeacherInviteCode
+from sensitive_filter import reject_sensitive_fields
+
+auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+user_bp = Blueprint("users", __name__, url_prefix="/api/users")
+
+
+# ---------- helpers ----------
+
+def ok(data=None, message="ok", code=0, status=200):
+    return jsonify({"code": code, "message": message, "data": data}), status
+
+
+def err(message="error", code=1, status=400, data=None):
+    return jsonify({"code": code, "message": message, "data": data}), status
+
+
+def now():
+    return datetime.utcnow()
+
+
+def role_of(user: User):
+    return (user.role or "").strip().lower()
+
+
+def as_int(v):
+    try:
+        return int(v)
+    except Exception:
+        return None
+
+
+def current_user():
+    uid = as_int(get_jwt_identity())
+    if not uid:
+        return None
+    return User.query.get(uid)
+
+
+def is_teacher(u: User):
+    return role_of(u) == "teacher"
+
+
+def is_student(u: User):
+    return role_of(u) == "student"
+
+
+def course_by_id(course_id: int):
+    return Course.query.get(course_id)
+
+
+def enrollment_status(course_id: int, student_id: int):
+    rec = (
+        Enrollment.query.filter_by(course_id=course_id, student_id=student_id)
+        .order_by(Enrollment.id.desc())
+        .first()
+    )
+    return rec.status if rec else None
+
+
+def is_enrolled(course_id: int, student_id: int):
+    return (
+        Enrollment.query.filter_by(
+            course_id=course_id, student_id=student_id, status="enrolled"
+        ).first()
+        is not None
+    )
+
+
+# ---------- auth ----------
+
+PASSWORD_VERIFY_CODE_EXPIRE_MINUTES = 2
+PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS = 60
+
+
+def send_email_code(email: str, code: str, scene_name: str = "账号注册", valid_minutes: int = 5):
+    # This expects env variables to send real emails, else prints to console
+    mail_server = os.getenv("MAIL_SERVER")
+    mail_port = as_int(os.getenv("MAIL_PORT")) or 465
+    mail_user = os.getenv("MAIL_USERNAME")
+    mail_pass = os.getenv("MAIL_PASSWORD")
+
+    print(f"========== 验证码已生成 [用于测试/备用] ==========")
+    print(f"邮箱: {email} | 验证码: {code}")
+    print(f"==================================================")
+
+    if not all([mail_server, mail_port, mail_user, mail_pass]):
+        print("注意: 暂未配置完整的 MAIL 相关环境变量(MAIL_SERVER等)，将只在控制台打印验证码")
+        return True
+
+    try:
+        from email.utils import formataddr
+        msg = MIMEText(f"【智能学习网站】您的{scene_name}验证码为：{code}，{valid_minutes}分钟内有效。", 'plain', 'utf-8')
+        msg['From'] = formataddr((str(Header("学习平台", 'utf-8')), mail_user))
+        msg['To'] = email
+        msg['Subject'] = Header(f"{scene_name}验证码", 'utf-8')
+
+        if mail_port in [465]:
+            server = smtplib.SMTP_SSL(mail_server, mail_port)
+        else:
+            server = smtplib.SMTP(mail_server, mail_port)
+            server.starttls()
+            
+        server.login(mail_user, mail_pass)
+        server.sendmail(mail_user, [email], msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print("发送邮件失败:", e)
+        return False
+
+
+def upsert_verify_code(email: str, expire_minutes: int):
+    # 统一验证码写入：覆盖旧验证码，确保一个邮箱同一时间只保留一条记录
+    code = str(random.randint(100000, 999999))
+    expires = now() + timedelta(minutes=expire_minutes)
+    VerifyCode.query.filter_by(email=email).delete()
+    db.session.add(VerifyCode(email=email, code=code, expires_at=expires))
+    db.session.commit()
+    return code, expires
+
+
+def password_code_cooldown_left_seconds(vc: VerifyCode | None):
+    # 密码验证码固定 2 分钟有效，因此可用“剩余有效秒数 - 60”得到冷却剩余秒数
+    if not vc:
+        return 0
+    remaining = int((vc.expires_at - now()).total_seconds())
+    return max(0, remaining - PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS)
+
+# [前端对应]: 登录注册弹窗 (AuthModal.vue) -> 点击“发送验证码”
+# [业务逻辑]: 生成并保存邮箱验证码，写入过期时间并尝试发送邮件
+@auth_bp.post("/send-code")
+def send_code():
+    body = request.get_json(silent=True) or {}
+    email = (body.get("email") or "").strip()
+    if "@" not in email:
+        return err("请输入有效的邮箱地址")
+        
+    if User.query.filter_by(email=email).first():
+        return err("该邮箱已注册账号，请直接登录", status=409)
+        
+    code, _ = upsert_verify_code(email, expire_minutes=5)
+    
+    if send_email_code(email, code, scene_name="账号注册", valid_minutes=5):
+        return ok(None, "验证码已发送，请注意查收")
+    else:
+        return err("验证码发送失败，请检查系统邮件配置", status=500)
+
+# [前端对应]: 登录注册弹窗 (AuthModal.vue) -> "注册" 按钮/表单
+# [业务逻辑]: 处理新用户注册并入库
+@auth_bp.post("/register")
+def register():
+    body = request.get_json(silent=True) or {}
+    username = (body.get("username") or "").strip()
+    email = (body.get("email") or "").strip()
+    password = body.get("password") or ""
+    role = (body.get("role") or "student").strip().lower()
+    verify_code = (body.get("verify_code") or "").strip()
+    invite_code = (body.get("invite_code") or "").strip()
+
+    if role not in {"student", "teacher"}:
+        return err("role 必须是 student/teacher")
+    if len(username) < 2:
+        return err("username 至少 2 位")
+    if "@" not in email:
+        return err("请输入有效的邮箱地址")
+    if len(password) < 6:
+        return err("password 至少 6 位")
+    if not verify_code:
+        return err("请输入邮箱验证码")
+
+    sensitive_err = reject_sensitive_fields({"用户名": username}, err, scene="content")
+    if sensitive_err:
+        return sensitive_err
+
+    if role == "teacher":
+        if not invite_code:
+            return err("注册教师账号需要提供专属邀请码")
+        ic = TeacherInviteCode.query.filter_by(code=invite_code, is_used=False).first()
+        if not ic or ic.expires_at < now():
+            return err("无效或已过期的教师邀请码")
+
+    # 查验验证码
+    vc = VerifyCode.query.filter_by(email=email).first()
+    if not vc or vc.code != verify_code:
+        return err("验证码错误")
+    if vc.expires_at < now():
+        return err("验证码已过期，请重新获取")
+
+    if User.query.filter_by(username=username).first():
+        return err("用户名已存在", status=409)
+    if User.query.filter_by(email=email).first():
+        return err("该邮箱已被注册", status=409)
+
+    u = User(
+        username=username,
+        email=email,
+        status="active",
+        password_hash=generate_password_hash(password),
+        role=role,
+        created_at=now(),
+        updated_at=now()
+    )
+    db.session.add(u)
+    db.session.commit()
+    
+    # 标记验证码和邀请码已使用
+    db.session.delete(vc)
+    if role == "teacher":
+        ic = TeacherInviteCode.query.filter_by(code=invite_code).first()
+        if ic:
+            ic.is_used = True
+            ic.used_by_id = u.id
+    db.session.commit()
+
+    return ok({"id": u.id, "username": u.username, "role": u.role}, "注册成功", status=201)
+
+
+# [前端对应]: 教师端邀请码管理入口 -> 生成邀请码按钮
+# [业务逻辑]: 教师生成 1 天有效期的邀请码并入库，供教师注册校验使用
+@auth_bp.post("/generate-invite")
+@jwt_required()
+def generate_invite():
+    u = current_user()
+    if not is_teacher(u):
+        return err("仅限教师生成邀请码", status=403)
+    
+    code = f"TCH-{uuid.uuid4().hex[:8].upper()}"
+    expires = now() + timedelta(days=1)
+    ic = TeacherInviteCode(code=code, expires_at=expires)
+    db.session.add(ic)
+    db.session.commit()
+    
+    return ok({"code": code, "expires_at": expires.isoformat()})
+
+# [前端对应]: 登录注册弹窗 (AuthModal.vue) -> "登录" 按钮/表单
+# [业务逻辑]: 验证用户身份并下发可跨越请求的 JWT Token
+@auth_bp.post("/login")
+def login():
+    body = request.get_json(silent=True) or {}
+    account = (body.get("username") or "").strip()
+    password = body.get("password") or ""
+
+    u = User.query.filter((User.username == account) | (User.email == account)).first()
+    if not u or not check_password_hash(u.password_hash, password):
+        return err("用户名/邮箱或密码错误", status=401)
+
+    token = create_access_token(identity=str(u.id))
+    return ok(
+        {"token": token, "user": {"id": u.id, "username": u.username, "role": u.role}},
+        "登录成功",
+    )
+
+
+# [前端对应]: 登录弹窗 (AuthModal.vue) -> 登录页内“忘记密码”发送验证码
+# [业务逻辑]: 给已注册邮箱发送重置密码验证码（2分钟有效，60秒内不可重复发送）
+@auth_bp.post("/send-reset-code")
+def send_reset_code():
+    body = request.get_json(silent=True) or {}
+    email = (body.get("email") or "").strip()
+    if "@" not in email:
+        return err("请输入有效的邮箱地址")
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return err("该邮箱未注册账号", status=404)
+
+    vc = VerifyCode.query.filter_by(email=email).first()
+    cooldown_left = password_code_cooldown_left_seconds(vc)
+    if cooldown_left > 0:
+        return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
+
+    code, _ = upsert_verify_code(email, expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES)
+    if send_email_code(
+        email,
+        code,
+        scene_name="找回密码",
+        valid_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
+    ):
+        return ok(
+            {"expires_seconds": PASSWORD_VERIFY_CODE_EXPIRE_MINUTES * 60, "cooldown_seconds": PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS},
+            "验证码已发送，请注意查收",
+        )
+    return err("验证码发送失败，请检查系统邮件配置", status=500)
+
+
+# [前端对应]: 登录弹窗 (AuthModal.vue) -> 忘记密码页提交“验证码 + 新密码”
+# [业务逻辑]: 校验邮箱验证码后，重置目标账号密码
+@auth_bp.post("/reset-password")
+def reset_password():
+    body = request.get_json(silent=True) or {}
+    email = (body.get("email") or "").strip()
+    verify_code = (body.get("verify_code") or "").strip()
+    new_password = body.get("new_password") or ""
+
+    if "@" not in email:
+        return err("请输入有效的邮箱地址")
+    if not verify_code:
+        return err("请输入邮箱验证码")
+    if len(new_password) < 6:
+        return err("新密码至少 6 位")
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return err("该邮箱未注册账号", status=404)
+
+    vc = VerifyCode.query.filter_by(email=email).first()
+    if not vc or vc.code != verify_code:
+        return err("验证码错误")
+    if vc.expires_at < now():
+        return err("验证码已过期，请重新获取")
+
+    user.password_hash = generate_password_hash(new_password)
+    user.updated_at = now()
+    db.session.delete(vc)
+    db.session.commit()
+    return ok(None, "密码重置成功，请使用新密码登录")
+
+
+# [前端对应]: 全局 (App.vue/router) -> 路由守卫/进入页面时初始化身份
+# [业务逻辑]: 解析请求头里的 Token 来获取当前使用者的角色和基础信息
+@user_bp.get("/me")
+@jwt_required()
+def me():
+    u = current_user()
+    if not u:
+        return err("token无效或用户不存在", status=401)
+    return ok({
+        "id": u.id, 
+        "username": u.username, 
+        "role": u.role,
+        "gender": getattr(u, 'gender', '未知'),
+        "hobby": getattr(u, 'hobby', '')
+    })
+
+# [前端对应]: 个人中心 (ProfileView/AuthModal) -> 编辑个人资料并保存
+# [业务逻辑]: 更新当前登录用户的用户名/性别/爱好，并进行用户名校验
+@user_bp.patch("/me")
+@jwt_required()
+def update_profile():
+    u = current_user()
+    if not u:
+        return err("请求未授权", status=401)
+    
+    data = request.json or {}
+    new_username = data.get("username", "").strip()
+    new_gender = data.get("gender", "").strip()
+    new_hobby = data.get("hobby", "").strip()
+    
+    sensitive_err = reject_sensitive_fields(
+        {"用户名": new_username, "个人简介": new_hobby},
+        err,
+        scene="content",
+    )
+    if sensitive_err:
+        return sensitive_err
+
+    if new_username:
+        # 检查重名
+        if new_username != u.username:
+            exist = User.query.filter_by(username=new_username).first()
+            if exist:
+                return err("该名字已被其他用户使用", status=400)
+            u.username = new_username
+            
+    if "gender" in data:
+        u.gender = new_gender
+    if "hobby" in data:
+        u.hobby = new_hobby
+        
+    db.session.commit()
+    return ok({
+        "id": u.id, 
+        "username": u.username, 
+        "role": u.role,
+        "gender": u.gender,
+        "hobby": u.hobby
+    }, "个人资料更新成功")
+
+
+# [前端对应]: 个人中心 (ProfileView.vue) -> 点击“发送验证码”用于修改密码
+# [业务逻辑]: 给当前登录用户邮箱发送修改密码验证码（2分钟有效，60秒内不可重复发送）
+@user_bp.post("/me/password-code")
+@jwt_required()
+def send_my_password_code():
+    u = current_user()
+    if not u:
+        return err("请求未授权", status=401)
+
+    vc = VerifyCode.query.filter_by(email=u.email).first()
+    cooldown_left = password_code_cooldown_left_seconds(vc)
+    if cooldown_left > 0:
+        return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
+
+    code, _ = upsert_verify_code(u.email, expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES)
+    if send_email_code(
+        u.email,
+        code,
+        scene_name="修改密码",
+        valid_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
+    ):
+        return ok(
+            {"expires_seconds": PASSWORD_VERIFY_CODE_EXPIRE_MINUTES * 60, "cooldown_seconds": PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS},
+            "验证码已发送，请注意查收",
+        )
+    return err("验证码发送失败，请检查系统邮件配置", status=500)
+
+
+# [前端对应]: 个人中心 (ProfileView.vue) -> 填写验证码后提交新密码
+# [业务逻辑]: 校验当前账号邮箱验证码，通过后更新密码哈希
+@user_bp.patch("/me/password")
+@jwt_required()
+def change_my_password():
+    u = current_user()
+    if not u:
+        return err("请求未授权", status=401)
+
+    body = request.get_json(silent=True) or {}
+    verify_code = (body.get("verify_code") or "").strip()
+    new_password = body.get("new_password") or ""
+
+    if not verify_code:
+        return err("请输入邮箱验证码")
+    if len(new_password) < 6:
+        return err("新密码至少 6 位")
+
+    vc = VerifyCode.query.filter_by(email=u.email).first()
+    if not vc or vc.code != verify_code:
+        return err("验证码错误")
+    if vc.expires_at < now():
+        return err("验证码已过期，请重新获取")
+
+    u.password_hash = generate_password_hash(new_password)
+    u.updated_at = now()
+    db.session.delete(vc)
+    db.session.commit()
+    return ok(None, "密码修改成功")
+
+
+
+# ---------- analytics (数据大屏专用接口) ----------
+# [前端对应]: 数据大屏统计看板界面 (DashboardView.vue) -> 进入页面时发送的初始图表报表请求
+# [业务逻辑]: 按不同身份组装核心数据给图表：学生算全课进度，老师算全班人头基数和平均分大盘
+@user_bp.get("/analytics")
+@jwt_required()
+def user_analytics():
+    u = current_user()
+    if not u:
+        return err("仅允许登录用户调用", status=401)
+        
+    if is_student(u):
+        # 学生端：按课程展示进度
+        enrollments = Enrollment.query.filter_by(student_id=u.id).all()
+        course_names = []
+        progress_data = [] # 百分比
+        completed_counts = []
+        
+        for en in enrollments:
+            c = course_by_id(en.course_id)
+            if c and c.status == "published":
+                course_names.append(c.title)
+                contents = Content.query.filter_by(course_id=c.id).all()
+                total = len(contents)
+                if total > 0:
+                    c_ids = [ct.id for ct in contents]
+                    viewed = Progress.query.filter(
+                        Progress.student_id == u.id,
+                        Progress.content_id.in_(c_ids)
+                    ).count()
+                    progress_data.append(int((viewed / total) * 100))
+                    completed_counts.append(viewed)
+                else:
+                    progress_data.append(0)
+                    completed_counts.append(0)
+                    
+        return ok({
+            "role": "student",
+            "courseNames": course_names,
+            "progressRates": progress_data,
+            "completedCounts": completed_counts
+        })
+        
+    elif is_teacher(u):
+        # 教师端：只展示"已发布"课程的选修人数分布
+        courses = Course.query.filter_by(teacher_id=u.id, status="published").all()
+        course_names = []
+        enroll_counts = []
+        review_averages = []
+        
+        total_students = 0
+        
+        for c in courses:
+            course_names.append(c.title)
+            
+            # 选修人数统计
+            c_enrolled = Enrollment.query.filter_by(course_id=c.id).count()
+            enroll_counts.append(c_enrolled)
+            total_students += c_enrolled
+            
+            # 平均评分统计
+            reviews = Review.query.filter_by(course_id=c.id).all()
+            avg = sum(r.rating for r in reviews) / len(reviews) if reviews else 0
+            review_averages.append(round(avg, 1))
+            
+        return ok({
+            "role": "teacher",
+            "courseNames": course_names,
+            "enrollCounts": enroll_counts,
+            "reviewAverages": review_averages,
+            "totalStudents": total_students
+        })
+        
+    return err("无权限访问大屏数据", status=403)
