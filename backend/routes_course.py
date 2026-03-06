@@ -16,6 +16,7 @@ from sensitive_filter import reject_sensitive_fields
 course_bp = Blueprint("courses", __name__, url_prefix="/api/courses")
 content_bp = Blueprint("contents", __name__, url_prefix="/api/contents")
 
+# 课程与内容相关接口模块（由原 routes_auth.py 拆分）
 
 # ---------- helpers ----------
 

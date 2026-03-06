@@ -20,6 +20,7 @@ from sensitive_filter import reject_sensitive_fields
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 user_bp = Blueprint("users", __name__, url_prefix="/api/users")
 
+# 账号与个人资料相关接口模块（由原 routes_auth.py 拆分）
 
 # ---------- helpers ----------
 
@@ -63,24 +64,6 @@ def is_student(u: User):
 
 def course_by_id(course_id: int):
     return Course.query.get(course_id)
-
-
-def enrollment_status(course_id: int, student_id: int):
-    rec = (
-        Enrollment.query.filter_by(course_id=course_id, student_id=student_id)
-        .order_by(Enrollment.id.desc())
-        .first()
-    )
-    return rec.status if rec else None
-
-
-def is_enrolled(course_id: int, student_id: int):
-    return (
-        Enrollment.query.filter_by(
-            course_id=course_id, student_id=student_id, status="enrolled"
-        ).first()
-        is not None
-    )
 
 
 # ---------- auth ----------
