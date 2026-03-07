@@ -139,21 +139,56 @@ async function unpublishCourse(courseId) {
 }
 
 const showInviteModal = ref(false);
-const generatedCode = ref("");
+const inviteCodes = ref([]);
+const inviteLoading = ref(false);
+const inviteError = ref("");
 const isGenerating = ref(false);
 
-// [功能说明]: 教师生成专属邀请码，成功后在弹窗里展示结果。
+function formatInviteTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+async function loadTeacherInviteCodes() {
+  inviteLoading.value = true;
+  inviteError.value = "";
+  try {
+    const res = await http.get("/auth/invite-codes");
+    inviteCodes.value = res.data.data?.items || [];
+  } catch (e) {
+    inviteError.value = e?.response?.data?.message || "读取邀请码失败";
+  } finally {
+    inviteLoading.value = false;
+  }
+}
+
+async function openInviteModal() {
+  showInviteModal.value = true;
+  await loadTeacherInviteCodes();
+}
+
 async function generateInvite() {
   if (isGenerating.value) return;
   isGenerating.value = true;
+  inviteError.value = "";
   try {
-    // [后端映射]: POST /api/auth/generate-invite -> 生成教师邀请码
-    const res = await http.post("/auth/generate-invite");
-    generatedCode.value = res.data.data.code;
+    await http.post("/auth/generate-invite");
+    await loadTeacherInviteCodes();
   } catch (e) {
-    alert(e?.response?.data?.message || "生成失败");
+    inviteError.value = e?.response?.data?.message || "生成邀请码失败";
   } finally {
     isGenerating.value = false;
+  }
+}
+
+async function copyInviteCode(code) {
+  try {
+    await navigator.clipboard.writeText(code);
+    alert("邀请码已复制");
+  } catch (e) {
+    alert("复制失败，请手动复制");
   }
 }
 
@@ -227,7 +262,7 @@ onUnmounted(() => {
           </p>
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
-          <button v-if="me && me.role === 'teacher'" class="btn btn-primary" style="background:#10b981; border-color:#10b981;" @click="showInviteModal = true">
+          <button v-if="me && me.role === 'teacher'" class="btn btn-primary" style="background:#10b981; border-color:#10b981;" @click="openInviteModal">
             生成邀请码
           </button>
           <button v-if="me && me.role === 'teacher'" class="btn btn-primary" @click="showCreateModal = true">
@@ -379,24 +414,39 @@ onUnmounted(() => {
     </section>
 
     <!-- [视图结构]: 教师生成邀请码的悬浮表单 -->
-    <div v-if="showInviteModal" class="modal-mask" @click.self="showInviteModal = false">
-      <div class="modal-card">
-        <h3>生成教师邀请码</h3>
-        <p class="muted" style="margin-bottom: 16px;">请注意：新生成的邀请码 <strong style="color:#ef4444">仅 1 天内有效</strong>，请尽快发给对方注册使用。</p>
-        <div v-if="generatedCode" class="field">
-          <label>专属邀请码：</label>
-          <input :value="generatedCode" readonly style="background: #f1f5f9; color: #b91c1c; font-weight: bold; text-align: center; font-size: 18px; width: 100%; box-sizing: border-box;" />
+    <div v-if="showInviteModal" class="modal-mask">
+      <div class="modal-card invite-modal-card">
+        <h3>教师邀请码</h3>
+        <p class="muted invite-modal-tip">当前只展示未使用且未过期的邀请码。一邀请码只能注册一个教师账号，新生成的邀请码固定 1 天有效。</p>
+
+        <div class="invite-toolbar">
+          <button class="btn btn-primary" style="background:#10b981; border-color:#10b981;" @click="generateInvite" :disabled="isGenerating || inviteLoading">
+            {{ isGenerating ? "生成中..." : "生成新邀请码" }}
+          </button>
+          <button class="btn" @click="loadTeacherInviteCodes" :disabled="inviteLoading || isGenerating">刷新列表</button>
         </div>
+
+        <div v-if="inviteError" class="invite-empty">{{ inviteError }}</div>
+        <div v-else-if="inviteLoading" class="invite-empty">正在读取邀请码...</div>
+        <div v-else-if="!inviteCodes.length" class="invite-empty">当前没有可用邀请码，点击上方按钮即可生成。</div>
+        <div v-else class="invite-list">
+          <div class="invite-list-head">
+            <span>邀请码</span>
+            <span>到期时间</span>
+            <span>操作</span>
+          </div>
+          <div v-for="item in inviteCodes" :key="item.id" class="invite-list-row">
+            <span class="invite-code">{{ item.code }}</span>
+            <span>{{ formatInviteTime(item.expires_at) }}</span>
+            <button class="btn" @click="copyInviteCode(item.code)">复制</button>
+          </div>
+        </div>
+
         <div class="actions" style="margin-top: 16px; justify-content: flex-end;">
           <button class="btn" @click="showInviteModal = false">关闭</button>
-          <button v-if="!generatedCode" class="btn btn-primary" style="background:#10b981; border-color:#10b981;" @click="generateInvite" :disabled="isGenerating">
-            {{ isGenerating ? "生成中..." : "立即生成" }}
-          </button>
         </div>
       </div>
     </div>
-
-    <!-- [视图结构]: 点击顶部的 "+ 创建新课程" 后展示的悬浮表单(老师专用) -->
     <div v-if="showCreateModal" class="modal-mask" @click.self="showCreateModal = false">
       <div class="modal-card">
         <h3>创建新课程</h3>
@@ -517,6 +567,54 @@ onUnmounted(() => {
   border-radius: 12px;
   padding: 20px;
 }
+.invite-modal-card {
+  width: min(760px, calc(100vw - 32px));
+}
+.invite-modal-tip {
+  margin-bottom: 16px;
+}
+.invite-toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.invite-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.invite-list-head,
+.invite-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+.invite-list-head {
+  font-size: 13px;
+  color: #64748b;
+}
+.invite-list-row {
+  border: 1px solid #dbe3ec;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+.invite-code {
+  font-weight: 700;
+  color: #b91c1c;
+  word-break: break-all;
+}
+.invite-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 18px;
+  color: #64748b;
+  background: #f8fafc;
+}
 .field {
   display: flex;
   flex-direction: column;
@@ -541,6 +639,10 @@ onUnmounted(() => {
   .search-input {
     min-width: 0;
     flex: 1;
+  }
+  .invite-list-head,
+  .invite-list-row {
+    grid-template-columns: 1fr;
   }
 }
 </style>

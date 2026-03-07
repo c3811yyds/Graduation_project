@@ -175,6 +175,9 @@ onUnmounted(() => {
       <div v-if="mode === 'register' && role === 'teacher'" class="field">
         <label>教师专属邀请码</label>
         <input v-model="inviteCode" placeholder="请输入系统发放的教师邀请码" />
+        <span class="hint" style="margin-top: 2px; display: block; font-size: 12px; color: #94a3b8;">
+          教师邀请码由教师或管理员发放，一个邀请码只能注册一个教师账号，具体有效期以发放时设置为准
+        </span>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>

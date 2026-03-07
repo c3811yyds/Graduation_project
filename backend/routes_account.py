@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 import os
@@ -11,6 +11,7 @@ from email.header import Header
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from extensions import db
@@ -81,6 +82,24 @@ def is_admin(u: User):
 def course_by_id(course_id: int):
     """按主键查询课程。"""
     return Course.query.get(course_id)
+
+
+def serialize_invite_code(invite: TeacherInviteCode):
+    """序列化教师端邀请码列表项。"""
+    return {
+        "id": invite.id,
+        "code": invite.code,
+        "is_used": bool(invite.is_used),
+        "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
+    }
+
+
+def build_teacher_invite_code():
+    """生成不重复的教师邀请码字符串。"""
+    code = f"TCH-{uuid.uuid4().hex[:8].upper()}"
+    while TeacherInviteCode.query.filter_by(code=code).first():
+        code = f"TCH-{uuid.uuid4().hex[:8].upper()}"
+    return code
 
 
 # ---------- auth ----------
@@ -175,6 +194,7 @@ def register():
     role = (body.get("role") or "student").strip().lower()
     verify_code = (body.get("verify_code") or "").strip()
     invite_code = (body.get("invite_code") or "").strip()
+    invite_record = None
 
     if role not in {"student", "teacher"}:
         return err("role 必须是 student/teacher")
@@ -194,8 +214,14 @@ def register():
     if role == "teacher":
         if not invite_code:
             return err("注册教师账号需要提供专属邀请码")
-        ic = TeacherInviteCode.query.filter_by(code=invite_code, is_used=False).first()
-        if not ic or ic.expires_at < now():
+        # 锁定未使用的邀请码记录，确保同一个邀请码不会被并发注册重复消费。
+        invite_record = (
+            TeacherInviteCode.query
+            .filter_by(code=invite_code, is_used=False)
+            .with_for_update()
+            .first()
+        )
+        if not invite_record or invite_record.expires_at < now():
             return err("无效或已过期的教师邀请码")
 
     # 查验验证码
@@ -220,15 +246,13 @@ def register():
         updated_at=now()
     )
     db.session.add(u)
-    db.session.commit()
+    db.session.flush()
     
-    # 标记验证码和邀请码已使用
+    # 标记验证码和邀请码已使用，并与用户创建保持同一笔提交。
     db.session.delete(vc)
-    if role == "teacher":
-        ic = TeacherInviteCode.query.filter_by(code=invite_code).first()
-        if ic:
-            ic.is_used = True
-            ic.used_by_id = u.id
+    if role == "teacher" and invite_record:
+        invite_record.is_used = True
+        invite_record.used_by_id = u.id
     db.session.commit()
 
     return ok({"id": u.id, "username": u.username, "role": u.role}, "注册成功", status=201)
@@ -242,17 +266,41 @@ def generate_invite():
     u = current_user()
     if not is_teacher(u):
         return err("仅限教师生成邀请码", status=403)
-    
-    code = f"TCH-{uuid.uuid4().hex[:8].upper()}"
+
+    code = build_teacher_invite_code()
     expires = now() + timedelta(days=1)
-    ic = TeacherInviteCode(code=code, expires_at=expires)
+    ic = TeacherInviteCode(code=code, expires_at=expires, created_by_id=u.id)
     db.session.add(ic)
     db.session.commit()
-    
-    return ok({"code": code, "expires_at": expires.isoformat()})
 
-# [前端对应]: 登录注册弹窗 (AuthModal.vue) -> "登录" 按钮/表单
-# [业务逻辑]: 验证用户身份并下发可跨越请求的 JWT Token
+    return ok(serialize_invite_code(ic), "邀请码生成成功")
+
+
+# [前端对应]: 教师首页 (HomeView.vue) -> 邀请码弹窗打开/刷新时读取当前仍可使用的邀请码
+# [业务逻辑]: 只返回当前教师创建、未使用且未过期的邀请码，便于刷新页面后继续查看和分发
+@auth_bp.get("/invite-codes")
+@jwt_required()
+def list_my_invite_codes():
+    u = current_user()
+    if not is_teacher(u):
+        return err("仅限教师查看邀请码", status=403)
+
+    invite_codes = (
+        TeacherInviteCode.query
+        .filter(TeacherInviteCode.is_used.is_(False))
+        .filter(
+            or_(
+                TeacherInviteCode.created_by_id == u.id,
+                TeacherInviteCode.created_by_id.is_(None),
+            )
+        )
+        .filter(TeacherInviteCode.expires_at >= now())
+        .order_by(TeacherInviteCode.expires_at.desc(), TeacherInviteCode.id.desc())
+        .all()
+    )
+    return ok({"items": [serialize_invite_code(code) for code in invite_codes]})
+
+
 @auth_bp.post("/login")
 def login():
     body = request.get_json(silent=True) or {}

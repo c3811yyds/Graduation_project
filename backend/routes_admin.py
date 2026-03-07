@@ -133,17 +133,20 @@ def serialize_message(message: Message):
 
 
 def serialize_invite(code: TeacherInviteCode):
-    """序列化教师邀请码信息。"""
+    """序列化管理员邀请码列表项。"""
+    creator = User.query.get(code.created_by_id) if code.created_by_id else None
     used_by = User.query.get(code.used_by_id) if code.used_by_id else None
     return {
         "id": code.id,
         "code": code.code,
         "is_used": bool(code.is_used),
         "expires_at": iso(code.expires_at),
+        "is_expired": bool(code.expires_at and code.expires_at < now()),
+        "created_by_id": code.created_by_id,
+        "created_by_name": creator.username if creator else "",
         "used_by_id": code.used_by_id,
         "used_by_name": used_by.username if used_by else "",
     }
-
 
 def bootstrap_admin_account():
     """按环境变量自动创建或提升管理员账号。"""
@@ -214,7 +217,9 @@ def admin_overview():
             "review_count": Review.query.count(),
             "message_count": Message.query.count(),
             "note_count": Note.query.count(),
-            "unused_invite_count": TeacherInviteCode.query.filter_by(is_used=False).count(),
+            "unused_invite_count": TeacherInviteCode.query.filter_by(is_used=False).filter(
+                TeacherInviteCode.expires_at >= now()
+            ).count(),
         }
     )
 
@@ -414,34 +419,101 @@ def admin_delete_message(message_id):
 @admin_bp.get("/invite-codes")
 @jwt_required()
 def admin_list_invite_codes():
-    """返回教师邀请码列表。"""
+    """分页读取邀请码列表，并支持状态与关键词筛选。"""
     _, denied = require_admin()
     if denied:
         return denied
 
-    invite_codes = TeacherInviteCode.query.order_by(
-        TeacherInviteCode.id.desc()
-    ).all()
-    return ok({"items": [serialize_invite(code) for code in invite_codes]})
+    page = as_int(request.args.get("page")) or 1
+    page_size = as_int(request.args.get("page_size")) or 10
+    keyword = (request.args.get("keyword") or "").strip()
+    status = (request.args.get("status") or "").strip().lower()
+
+    page = max(1, page)
+    page_size = max(5, min(page_size, 50))
+
+    query = TeacherInviteCode.query
+
+    if status == "used":
+        query = query.filter(TeacherInviteCode.is_used.is_(True))
+    elif status == "unused":
+        query = query.filter(TeacherInviteCode.is_used.is_(False))
+    elif status == "active":
+        query = query.filter(
+            TeacherInviteCode.is_used.is_(False),
+            TeacherInviteCode.expires_at >= now(),
+        )
+    elif status == "expired":
+        query = query.filter(TeacherInviteCode.expires_at < now())
+
+    if keyword:
+        like_keyword = f"%{keyword}%"
+        matched_user_ids = [
+            user.id
+            for user in User.query.filter(
+                or_(User.username.like(like_keyword), User.email.like(like_keyword))
+            ).all()
+        ]
+        conditions = [TeacherInviteCode.code.like(like_keyword)]
+        if matched_user_ids:
+            conditions.append(TeacherInviteCode.created_by_id.in_(matched_user_ids))
+            conditions.append(TeacherInviteCode.used_by_id.in_(matched_user_ids))
+        query = query.filter(or_(*conditions))
+
+    total = query.count()
+    total_pages = max(1, (total + page_size - 1) // page_size) if total else 1
+    page = min(page, total_pages)
+
+    invite_codes = (
+        query.order_by(TeacherInviteCode.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return ok(
+        {
+            "items": [serialize_invite(code) for code in invite_codes],
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "total_pages": total_pages,
+            },
+            "filters": {
+                "keyword": keyword,
+                "status": status,
+            },
+        }
+    )
 
 
 @admin_bp.post("/invite-codes")
 @jwt_required()
 def admin_create_invite_code():
-    """按有效天数创建新的教师邀请码。"""
-    _, denied = require_admin()
+    """按管理员指定天数生成教师邀请码。"""
+    admin_user, denied = require_admin()
     if denied:
         return denied
 
     body = request.get_json(silent=True) or {}
-    expire_days = as_int(body.get("expire_days"))
-    expire_days = expire_days if expire_days else 1
+    expire_days = as_int(body.get("expire_days")) or 1
     if expire_days < 1 or expire_days > 30:
-        return err("有效天数仅支持 1 到 30 天")
+        return err("邀请码有效天数仅支持 1 到 30 天", status=400)
 
-    code = f"ADM-TCH-{uuid.uuid4().hex[:8].upper()}"
+    code = f"TCH-{uuid.uuid4().hex[:8].upper()}"
+    while TeacherInviteCode.query.filter_by(code=code).first():
+        code = f"TCH-{uuid.uuid4().hex[:8].upper()}"
+
     expires_at = now() + timedelta(days=expire_days)
-    invite_code = TeacherInviteCode(code=code, expires_at=expires_at)
+    invite_code = TeacherInviteCode(
+        code=code,
+        expires_at=expires_at,
+        created_by_id=admin_user.id,
+    )
     db.session.add(invite_code)
     db.session.commit()
-    return ok(serialize_invite(invite_code), "邀请码已生成", status=201)
+    return ok(
+        serialize_invite(invite_code),
+        f"已生成 {expire_days} 天有效的教师邀请码",
+        status=201,
+    )

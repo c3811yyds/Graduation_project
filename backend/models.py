@@ -121,4 +121,5 @@ class TeacherInviteCode(db.Model):
     code = db.Column(db.String(50), unique=True, nullable=False)
     is_used = db.Column(db.Boolean, default=False)
     expires_at = db.Column(db.DateTime, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     used_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
