@@ -114,8 +114,8 @@
 
         <!-- Office 文档暂时统一走下载查看，避免线上预览器不稳定 -->
         <div v-else-if="currentPreviewKind === 'office'" class="preview-fallback">
-          <div class="preview-fallback-icon">DOC</div>
-          <p>当前版本暂不直接在线预览 Office 文档，请下载后使用本地应用查看。</p>
+          <div class="preview-fallback-icon">文件</div>
+          <p>当前文件暂不支持在线预览，请下载后使用本地应用查看。</p>
           <button class="btn btn-primary preview-download-btn" @click="downloadContent(currentPlayingContent.id)">立即下载</button>
         </div>
 
