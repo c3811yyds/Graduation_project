@@ -1003,9 +1003,12 @@ async function deleteContent(contentId) {
   border-color: var(--primary);
 }
 .media-preview {
-  width: 100%;
-  height: 100%;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
   max-height: 70vh;
+  object-fit: contain;
   outline: none;
   background: #000;
 }
