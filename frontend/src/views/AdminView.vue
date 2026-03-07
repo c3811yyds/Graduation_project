@@ -3,7 +3,9 @@
     <section class="hero admin-hero">
       <div>
         <h1>管理员后台</h1>
-        <p class="muted">当前支持账号治理与教师邀请码管理。发现违规时，可直接封禁账号。</p>
+        <p class="muted">
+          集中管理账号状态与教师邀请码，方便完成筛选、封禁、查询和发放操作。
+        </p>
       </div>
       <div class="hero-actions">
         <button class="btn" @click="goHome">返回首页</button>
@@ -17,7 +19,7 @@
     <template v-else>
       <section class="stats-grid">
         <article class="stat-card">
-          <span class="stat-label">用户总数</span>
+          <span class="stat-label">账号总数</span>
           <strong>{{ overview.user_count || 0 }}</strong>
         </article>
         <article class="stat-card">
@@ -41,16 +43,31 @@
           <strong>{{ overview.student_count || 0 }}</strong>
         </article>
         <article class="stat-card">
-          <span class="stat-label">未使用邀请码</span>
+          <span class="stat-label">可用邀请码</span>
           <strong>{{ overview.unused_invite_count || 0 }}</strong>
         </article>
       </section>
 
-      <section class="panel">
+      <div class="tab-bar">
+        <button
+          :class="['tab-btn', activeTab === 'users' ? 'tab-btn-active' : '']"
+          @click="activeTab = 'users'"
+        >
+          账号管理
+        </button>
+        <button
+          :class="['tab-btn', activeTab === 'invites' ? 'tab-btn-active' : '']"
+          @click="activeTab = 'invites'"
+        >
+          教师邀请码
+        </button>
+      </div>
+
+      <section v-if="activeTab === 'users'" class="panel">
         <div class="section-head">
           <div>
             <h2>账号管理</h2>
-            <p class="muted">支持关键词、角色、状态筛选，以及分页查看。</p>
+            <p class="muted">支持按关键词、角色、状态筛选账号，并直接启用或停用账号。</p>
           </div>
           <div class="summary-text">共 {{ pagination.total || 0 }} 条</div>
         </div>
@@ -100,7 +117,7 @@
               <tr v-for="user in users" :key="user.id">
                 <td>{{ user.id }}</td>
                 <td>{{ user.username }}</td>
-                <td>{{ user.email }}</td>
+                <td>{{ user.email || '-' }}</td>
                 <td>
                   <span class="badge">{{ user.role }}</span>
                 </td>
@@ -116,12 +133,12 @@
                     :disabled="pendingUserId === user.id"
                     @click="toggleUserStatus(user)"
                   >
-                    {{ user.status === 'active' ? '封禁' : '解封' }}
+                    {{ user.status === 'active' ? '停用' : '启用' }}
                   </button>
                 </td>
               </tr>
               <tr v-if="!users.length">
-                <td colspan="7" class="empty-cell">当前筛选条件下没有数据</td>
+                <td colspan="7" class="empty-cell">当前筛选条件下没有账号数据</td>
               </tr>
             </tbody>
           </table>
@@ -152,11 +169,11 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section v-else class="panel">
         <div class="section-head">
           <div>
             <h2>教师邀请码</h2>
-            <p class="muted">管理员可按自定义有效天数生成邀请码，一邀请码只能注册一个教师账号，并可按状态或关键词查询。</p>
+            <p class="muted">支持生成邀请码、分页查看状态，并按创建人、使用人或邀请码关键词查询。</p>
           </div>
           <div class="summary-text">共 {{ invitePagination.total || 0 }} 条</div>
         </div>
@@ -170,25 +187,30 @@
             <option :value="30">30 天有效</option>
           </select>
           <button class="btn btn-primary" :disabled="generatingInvite" @click="createInviteCode">
-            {{ generatingInvite ? '生成中...' : '生成邀请码' }}
+            {{ generatingInvite ? '正在生成...' : '生成邀请码' }}
           </button>
+          <span class="invite-rule">一个邀请码只能注册一个教师账号，可按有效天数单独生成。</span>
         </div>
 
         <div class="filter-bar invite-filter-bar">
           <input
             v-model.trim="inviteFilters.keyword"
             class="search-input"
-            placeholder="搜索邀请码 / 创建人 / 使用人"
+            placeholder="搜索邀请码、创建人或使用人"
             @keyup.enter="applyInviteFilters"
           />
           <select v-model="inviteFilters.status" class="filter-select" @change="applyInviteFilters">
             <option value="">全部状态</option>
-            <option value="active">当前可用</option>
+            <option value="active">可用</option>
             <option value="unused">未使用</option>
             <option value="used">已使用</option>
             <option value="expired">已过期</option>
           </select>
-          <select v-model.number="inviteFilters.pageSize" class="filter-select" @change="applyInviteFilters">
+          <select
+            v-model.number="inviteFilters.pageSize"
+            class="filter-select"
+            @change="applyInviteFilters"
+          >
             <option :value="10">10 条/页</option>
             <option :value="20">20 条/页</option>
             <option :value="30">30 条/页</option>
@@ -209,7 +231,7 @@
                 <th>状态</th>
                 <th>创建人</th>
                 <th>使用人</th>
-                <th>到期时间</th>
+                <th>过期时间</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -221,10 +243,10 @@
                   <span
                     :class="[
                       'badge',
-                      item.is_used || item.is_expired ? 'badge-warn' : 'badge-ok'
+                      item.is_used || item.is_expired ? 'badge-warn' : 'badge-ok',
                     ]"
                   >
-                    {{ item.is_used ? '已使用' : item.is_expired ? '已过期' : '可使用' }}
+                    {{ item.is_used ? '已使用' : item.is_expired ? '已过期' : '可用' }}
                   </span>
                 </td>
                 <td>{{ item.created_by_name || '历史数据' }}</td>
@@ -235,16 +257,22 @@
                 </td>
               </tr>
               <tr v-if="!inviteCodes.length">
-                <td colspan="7" class="empty-cell">当前筛选条件下没有邀请码</td>
+                <td colspan="7" class="empty-cell">当前筛选条件下没有邀请码数据</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <div class="pagination-bar">
-          <div class="page-info">第 {{ invitePagination.page || 1 }} / {{ invitePagination.total_pages || 1 }} 页</div>
+          <div class="page-info">
+            第 {{ invitePagination.page || 1 }} / {{ invitePagination.total_pages || 1 }} 页
+          </div>
           <div class="page-actions">
-            <button class="btn" :disabled="invitePagination.page <= 1" @click="changeInvitePage(invitePagination.page - 1)">
+            <button
+              class="btn"
+              :disabled="invitePagination.page <= 1"
+              @click="changeInvitePage(invitePagination.page - 1)"
+            >
               上一页
             </button>
             <button
@@ -276,6 +304,7 @@ import http from '../api/http'
 
 const router = useRouter()
 
+const activeTab = ref('users')
 const loading = ref(true)
 const error = ref('')
 const pendingUserId = ref(null)
@@ -311,12 +340,12 @@ const inviteFilters = ref({
 })
 const inviteError = ref('')
 
-// 管理员可以从后台直接回到首页继续浏览站点。
+// 返回首页，方便管理员从后台回到主站继续操作。
 function goHome() {
   router.push('/')
 }
 
-// 统一格式化后台表格中的时间字段。
+// 统一格式化时间展示，接口缺值时显示占位符。
 function formatTime(value) {
   if (!value) return '-'
   const date = new Date(value)
@@ -324,7 +353,7 @@ function formatTime(value) {
   return date.toLocaleString()
 }
 
-// 根据当前页码生成最多 5 个分页按钮。
+// 账号列表分页按钮最多展示当前页附近 5 个页码。
 const pageButtons = computed(() => {
   const totalPages = pagination.value.total_pages || 1
   const current = pagination.value.page || 1
@@ -338,6 +367,7 @@ const pageButtons = computed(() => {
   return result
 })
 
+// 邀请码列表分页按钮与账号列表保持同一交互规则。
 const invitePageButtons = computed(() => {
   const totalPages = invitePagination.value.total_pages || 1
   const current = invitePagination.value.page || 1
@@ -351,13 +381,13 @@ const invitePageButtons = computed(() => {
   return result
 })
 
-// 读取管理员顶部统计卡片所需的概览数据。
+// 拉取后台概览卡片数据。
 async function loadOverview() {
   const res = await http.get('/admin/overview')
   overview.value = res.data.data || {}
 }
 
-// 按当前筛选条件加载账号分页列表。
+// 按筛选条件拉取账号列表和分页信息。
 async function loadUsers(page = 1) {
   const params = {
     page,
@@ -378,7 +408,7 @@ async function loadUsers(page = 1) {
   }
 }
 
-// 读取邀请码列表，供管理员查看和复制。
+// 按筛选条件拉取邀请码列表和分页信息。
 async function loadInviteCodes(page = 1) {
   const params = {
     page,
@@ -398,34 +428,34 @@ async function loadInviteCodes(page = 1) {
   }
 }
 
-// 页面初始化或点击刷新时并行拉取概览、账号列表和邀请码数据。
+// 后台首屏统一加载概览、账号和邀请码数据。
 async function loadAll() {
   loading.value = true
   error.value = ''
   inviteError.value = ''
   try {
-    await Promise.all([loadOverview(), loadUsers(pagination.value.page || 1), loadInviteCodes()])
+    await Promise.all([loadOverview(), loadUsers(pagination.value.page || 1), loadInviteCodes(invitePagination.value.page || 1)])
   } catch (e) {
-    error.value = e?.response?.data?.message || '管理员数据加载失败'
+    error.value = e?.response?.data?.message || '管理员数据加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
 }
 
-// 应用筛选条件后回到第一页重新查询。
+// 应用账号筛选条件并回到第一页。
 async function applyFilters() {
   loading.value = true
   error.value = ''
   try {
     await loadUsers(1)
   } catch (e) {
-    error.value = e?.response?.data?.message || '筛选失败'
+    error.value = e?.response?.data?.message || '账号筛选失败'
   } finally {
     loading.value = false
   }
 }
 
-// 恢复默认筛选条件并立即刷新列表。
+// 重置账号筛选项，并重新加载第一页列表。
 async function resetFilters() {
   filters.value = {
     keyword: '',
@@ -436,7 +466,7 @@ async function resetFilters() {
   await applyFilters()
 }
 
-// 切换分页时保持当前筛选条件不变。
+// 切换账号管理分页。
 async function changePage(page) {
   if (page < 1 || page > (pagination.value.total_pages || 1)) return
   loading.value = true
@@ -444,16 +474,16 @@ async function changePage(page) {
   try {
     await loadUsers(page)
   } catch (e) {
-    error.value = e?.response?.data?.message || '分页加载失败'
+    error.value = e?.response?.data?.message || '账号分页加载失败'
   } finally {
     loading.value = false
   }
 }
 
-// 封禁或解封指定用户账号，并同步刷新概览与当前页列表。
+// 切换账号启用状态，管理员自己不能停用自己。
 async function toggleUserStatus(user) {
   const nextStatus = user.status === 'active' ? 'disabled' : 'active'
-  const actionText = nextStatus === 'disabled' ? '封禁' : '解封'
+  const actionText = nextStatus === 'disabled' ? '停用' : '启用'
   if (!window.confirm(`确定要${actionText}账号 ${user.username} 吗？`)) return
 
   pendingUserId.value = user.id
@@ -467,6 +497,7 @@ async function toggleUserStatus(user) {
   }
 }
 
+// 应用邀请码筛选条件并回到第一页。
 async function applyInviteFilters() {
   inviteError.value = ''
   try {
@@ -476,6 +507,7 @@ async function applyInviteFilters() {
   }
 }
 
+// 重置邀请码筛选项，并保留默认 1 天有效配置。
 async function resetInviteFilters() {
   inviteFilters.value = {
     keyword: '',
@@ -486,6 +518,7 @@ async function resetInviteFilters() {
   await applyInviteFilters()
 }
 
+// 切换邀请码列表分页。
 async function changeInvitePage(page) {
   if (page < 1 || page > (invitePagination.value.total_pages || 1)) return
   inviteError.value = ''
@@ -496,7 +529,7 @@ async function changeInvitePage(page) {
   }
 }
 
-// 管理员可按自定义天数生成邀请码，并刷新概览和邀请码列表。
+// 按当前有效天数生成教师邀请码，并刷新概览和列表。
 async function createInviteCode() {
   generatingInvite.value = true
   inviteError.value = ''
@@ -505,6 +538,7 @@ async function createInviteCode() {
       expire_days: inviteFilters.value.expireDays,
     })
     await Promise.all([loadOverview(), loadInviteCodes(1)])
+    activeTab.value = 'invites'
   } catch (e) {
     inviteError.value = e?.response?.data?.message || '邀请码生成失败'
   } finally {
@@ -512,17 +546,17 @@ async function createInviteCode() {
   }
 }
 
-// 复制邀请码到剪贴板，便于管理员分发给教师。
+// 一键复制邀请码，方便管理员发给教师。
 async function copyInviteCode(code) {
   try {
     await navigator.clipboard.writeText(code)
     window.alert('邀请码已复制')
   } catch (e) {
-    window.alert('复制失败，请手动复制')
+    window.alert('复制失败，请手动复制邀请码')
   }
 }
 
-// 页面进入管理员后台时自动加载概览和账号列表。
+// 页面加载后同步后台所需的全部基础数据。
 onMounted(loadAll)
 </script>
 
@@ -570,6 +604,36 @@ onMounted(loadAll)
 .stat-label {
   color: var(--muted);
   font-size: 13px;
+}
+
+.tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tab-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.tab-btn:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #2563eb;
+}
+
+.tab-btn-active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
 }
 
 .section-head {
@@ -727,10 +791,7 @@ onMounted(loadAll)
     align-items: stretch;
   }
 
-  .filter-bar {
-    flex-direction: column;
-  }
-
+  .filter-bar,
   .invite-toolbar {
     flex-direction: column;
     align-items: stretch;
