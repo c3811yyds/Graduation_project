@@ -50,8 +50,8 @@ services:
     volumes:
       # 持久化数据
       - db_data:/var/lib/mysql
-      # 如果你有初创的SQL脚本 (比如 database_seed.sql) 想自动执行建表
-      - ./database_seed.sql:/docker-entrypoint-initdb.d/init.sql
+      # db-backups/database_seed.sql 只会在空库首次初始化时自动执行；日常 SQL 备份建议手动导出到项目根目录 db-backups/ 或服务器 /root/db-backups/
+      - ./db-backups/database_seed.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app-network
 

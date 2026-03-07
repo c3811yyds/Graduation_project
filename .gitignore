@@ -62,3 +62,7 @@ backend/flask_session/
 *.db
 backend/.env
 backend/.flaskenv
+db-backups/*
+!db-backups/
+!db-backups/database_seed.sql
+backend_storage_*.tar.gz

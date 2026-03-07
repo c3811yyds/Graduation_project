@@ -25,6 +25,10 @@ cd Graduation_project
 每次准备 Docker 上线前，请先手动修改项目根目录 `VERSION`。
 例如先执行 `nano VERSION`，再把内容改成 `v1.0.1` 这类你自己能识别的版本号。
 后端镜像构建时会把这个版本号写入镜像，前端页面顶部会显示当前部署版本。
+备份目录说明：
+服务器日常数据库备份建议统一导出到 `/root/db-backups/`。
+项目根目录 `db-backups/` 统一存放数据库相关文件。
+其中 `db-backups/database_seed.sql` 用于初始化空库或重建演示环境，其他带时间戳的 `.sql` 文件作为日常滚动备份文件。
 
 四、创建后端环境变量文件
 在项目根目录执行：
@@ -123,6 +127,15 @@ docker compose down -v
 5. 查看前端日志
 
 docker compose logs -f frontend
+
+6. 备份数据库到固定目录
+
+mkdir -p /root/db-backups
+docker compose exec -T db mysqldump -u root -proot --default-character-set=utf8mb4 --no-tablespaces graduation_project > /root/db-backups/backup_$(date +%F_%H%M).sql
+
+7. 备份上传文件
+
+docker compose exec -T backend sh -c "cd /app/backend && tar czf - storage" > /root/backend_storage_$(date +%F_%H%M).tar.gz
 
 八、数据持久化说明
 1. MySQL 数据保存在 db_data 卷中。

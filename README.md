@@ -38,7 +38,7 @@
 
 3. 数据库设计
    - 核心数据表采用级联及多对多关联设计。总共包含 11 张结构表。
-   - 执行 database_seed.sql 导入初始数据与表结构。
+   - 执行 `db-backups/database_seed.sql` 导入初始数据与表结构。
 
 4. 后端实现（Flask）
    - 项目结构：应用工厂 + 蓝图按职责拆分（账号/用户、课程/内容、笔记、AI）。
@@ -64,6 +64,7 @@
    - 生产：Nginx + Gunicorn + MySQL，打包 Vue 静态文件。
    - 服务器完整部署详细步骤请专门参考：[Docker部署指南](./DEPLOY_DOCKER.md)
    - 版本：根目录 `VERSION` 为当前 Docker 上线展示版本号。每次准备上线前，请先手动修改它，再执行 `docker compose up -d --build`。
+   - 备份目录：数据库相关文件统一放在项目根目录 `db-backups/`；其中 `db-backups/database_seed.sql` 作为首次初始化空库或重建演示环境使用的固定文件，其他带时间戳的 `.sql` 文件作为日常滚动备份。
    - 说明：当前版本更新不涉及数据库表结构变更，无需执行迁移脚本。
 
 三、快速开始
@@ -74,7 +75,7 @@
    - MySQL 8.0+
 
 2. 后端运行 (Flask)
-   请确保您的机器已经安装了 MySQL，并使用根目录提供的 .sql 文件导入数据库结构和初始数据：
+   请确保您的机器已经安装了 MySQL，并使用 `db-backups/` 目录中的初始化 .sql 文件导入数据库结构和初始数据：
 
    - (1) 登录 MySQL
      - mysql -u root -p
@@ -84,7 +85,7 @@
      - USE graduation_project;
 
    - (3) 导入数据（注意您的实际路径）
-     - source /您的路径/database_seed.sql;
+     - source /您的路径/db-backups/database_seed.sql;
 
    - (4) 进入后端目录
      - cd backend
@@ -173,7 +174,7 @@
 五、数据库表设计
   核心数据表采用级联及多对多关联设计。总共包含 11 张表。
 
-  注：本节按当前 database_seed.sql 与 backend/models.py 实际字段整理。
+  注：本节按当前 `db-backups/database_seed.sql` 与 backend/models.py 实际字段整理。
   注：若后续你新增字段/索引，请同步更新这里，避免文档与代码漂移。
 
 1. Table 1: users (用户表)

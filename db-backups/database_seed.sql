@@ -1,0 +1,377 @@
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
+--
+-- Host: 127.0.0.1    Database: graduation_project
+-- ------------------------------------------------------
+-- Server version	8.0.45
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `contents`
+--
+
+DROP TABLE IF EXISTS `contents`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `contents` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `course_id` int NOT NULL,
+  `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `url_or_path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `duration_seconds` int DEFAULT NULL,
+  `size_bytes` bigint DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_contents_course_id` (`course_id`),
+  CONSTRAINT `contents_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=82 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `contents`
+--
+
+LOCK TABLES `contents` WRITE;
+/*!40000 ALTER TABLE `contents` DISABLE KEYS */;
+INSERT INTO `contents` VALUES (10,3,'image','第一讲','fdf0816d2f334917803c9e8021b3c586.png',NULL,75773,'2026-03-01 06:29:23'),(11,3,'image','第二讲','7d2833a95d874b0886524e993a05ecd3.png',NULL,63617,'2026-03-01 06:29:45'),(12,3,'image','第三讲','f8c90a5a6e6540649731c5c7d454bbb0.png',NULL,47834,'2026-03-01 06:29:57'),(13,3,'image','第四讲','e022d34c4bb54204949219cd0a391c99.png',NULL,46275,'2026-03-01 06:30:12'),(14,3,'image','第五讲','8cf12cca0c2a4bea93308d765a6880ca.png',NULL,53245,'2026-03-01 06:30:26'),(15,3,'image','第六讲','ec23c9fe546b4ee285b2883037b5fefa.png',NULL,49716,'2026-03-01 06:30:35'),(16,3,'image','第七讲','f9a2f684219e4bc48aa3c3c5823ceb30.png',NULL,46065,'2026-03-01 06:30:51'),(17,3,'image','第八讲','33d940f8fbe94bcaaa28fd7ba0789993.png',NULL,56918,'2026-03-01 06:31:12'),(18,3,'image','第九讲','6c43605590ef44209e0a231da9fc7d7f.png',NULL,48930,'2026-03-01 06:31:30'),(19,3,'image','第十讲','ef3e7e10fe4246769e36c8a7ad1a9c0a.png',NULL,56073,'2026-03-01 06:31:41'),(24,1,'image','第 1 讲 - 高数1','33c83016733e456b94f38ff2ef61dd9a.png',NULL,35101,'2026-03-06 16:18:34'),(25,1,'image','第 2 讲 - 高数2','82a7d06f63154b35aa867e6e7c11c4de.png',NULL,27346,'2026-03-06 16:18:40'),(26,1,'image','第 3 讲 - 高数3','5df7bcdb212943abb3cdc28af5fa77ec.png',NULL,26477,'2026-03-06 16:18:59'),(27,1,'image','第 4 讲 - 高数4','be421e22642a459d8e8888466d910d6e.png',NULL,22199,'2026-03-06 16:19:08'),(28,1,'image','第 5 讲 - 高数5','247c095f273741b982aea624c41074ba.png',NULL,19053,'2026-03-06 16:19:14'),(29,1,'image','第 6 讲 - 高数6','bf34aa26705845b8853b48cf69481d25.png',NULL,25782,'2026-03-06 16:19:20'),(30,1,'image','第 7 讲 - 高数7','685ee96200a245528dfab8029178e8b1.png',NULL,38390,'2026-03-06 16:19:26'),(31,1,'image','第 8 讲 - 高数8','621b53b7696849d5bd3062e6c7a0c28d.png',NULL,31670,'2026-03-06 16:19:31'),(32,2,'image','第 1 讲 - Python1','caf8d89ffced44eb8d89403e6bfb9792.png',NULL,43401,'2026-03-06 16:23:32'),(33,2,'image','第 2 讲 - Python2','9a716ebdae45460286a55d179cf97558.png',NULL,38866,'2026-03-06 16:23:38'),(34,2,'image','第 3 讲 - Python3','aa8222e3fa5b4b83b1aafd027a72c469.png',NULL,49323,'2026-03-06 16:23:43'),(35,2,'image','第 4 讲 - Python4','5c846f14b12441958572a04fc0ed615b.png',NULL,38815,'2026-03-06 16:23:48'),(36,2,'image','第 5 讲 - Python5','dd1c48d752d94033874d1287a9073166.png',NULL,54199,'2026-03-06 16:23:53'),(37,2,'image','第 6 讲 - Python6','2745b44e3edb4cb08421174c0131dea3.png',NULL,51512,'2026-03-06 16:23:58'),(38,5,'image','第 1 讲 - 操作系统1','5b60fc3c6deb4e2aa35eef447483fdf0.png',NULL,47989,'2026-03-06 17:02:34'),(39,5,'image','第 2 讲 - 操作系统2','dca8877036db4b6e8cc99bd8c8a6cfb4.png',NULL,81227,'2026-03-06 17:02:40'),(40,5,'image','第 3 讲 - 操作系统3','09222857ddd34dbbbd3f0ceabba02082.png',NULL,66619,'2026-03-06 17:02:45'),(41,5,'image','第 4 讲 - 操作系统4','dedddd847d6a4ffd888826f870af0d58.png',NULL,77265,'2026-03-06 17:02:51'),(42,5,'image','第 5 讲 - 操作系统5','229c8acdffad4489a67fb4fac463d070.png',NULL,63330,'2026-03-06 17:02:56'),(44,7,'image','第 1 讲 - 数据结构1','f22d8f951c504d74b3ee68e4d7c1e8e5.png',NULL,36327,'2026-03-06 17:10:43'),(45,7,'image','第 2 讲 - 数据结构2','97c77d97137043f5a70386d44f29ccad.png',NULL,42527,'2026-03-06 17:10:50'),(46,7,'image','第 3 讲 - 数据结构3','0820be3da7934be0b0d73008d231897d.png',NULL,56715,'2026-03-06 17:10:58'),(47,7,'image','第 4 讲 - 数据结构4','896e1efd53c14adda430e4cb1c6fe7f6.png',NULL,32295,'2026-03-06 17:11:03'),(48,7,'image','第 5 讲 - 数据结构5','0a8bf6e5a6af4264a8dfe2df9658c462.png',NULL,59990,'2026-03-06 17:11:09'),(49,7,'image','第 6 讲 - 数据结构6','998a054b7a504c38a23825b5cc57452a.png',NULL,68848,'2026-03-06 17:11:15'),(50,7,'image','第 7 讲 - 数据结构7','12aeb77ac2e645dcace173b1510fc371.png',NULL,82307,'2026-03-06 17:11:20'),(51,11,'image','第 1 讲 - NLP1','7d180e9adfca4bb396c6a63e9328ef34.png',NULL,60622,'2026-03-06 17:23:32'),(52,11,'image','第 2 讲 - NLP2','54e898f7ecc6480494f51283f1d9d799.png',NULL,49154,'2026-03-06 17:23:38'),(53,11,'image','第 3 讲 - NLP3','7b2948f63e6c4bfeb263eb464fb11404.png',NULL,39053,'2026-03-06 17:23:44'),(54,11,'image','第 4 讲 - NLP4','8434e06d36674d89a3f80f86c7107164.png',NULL,64785,'2026-03-06 17:23:54'),(55,11,'image','第 5 讲 - NLP5','1bfbbb0ce7714dc0a19970b7144e5303.png',NULL,64402,'2026-03-06 17:23:59'),(56,11,'image','第 6 讲 - NLP6','c6add981187448d597c560e30faa84dc.png',NULL,78331,'2026-03-06 17:24:05'),(57,10,'image','第 1 讲 - 编译原理1','b4d932c729d744a8b33dba646f20daf1.png',NULL,63431,'2026-03-06 17:28:18'),(58,10,'image','第 2 讲 - 编译原理2','3d63013d0aab47df830fafdfc2359011.png',NULL,72058,'2026-03-06 17:28:24'),(59,10,'image','第 3 讲 - 编译原理3','f0c2487257954c2d882299d9f906b4a9.png',NULL,94409,'2026-03-06 17:28:30'),(60,10,'image','第 4 讲 - 编译原理4','0769e6eddfb442c3b1a3350bfab4bc04.png',NULL,76006,'2026-03-06 17:28:35'),(61,10,'image','第 5 讲 - 编译原理5','832a8e2667d04206a245d8a056b57495.png',NULL,110462,'2026-03-06 17:28:41'),(62,10,'image','第 6 讲 - 编译原理6','2a4bb100307444b1a2f631a7da18be6f.png',NULL,110944,'2026-03-06 17:28:45'),(63,9,'image','第 1 讲 - 算法1','7b0f186d71b5419c8247c1436b5653e8.png',NULL,70665,'2026-03-06 17:31:32'),(64,9,'image','第 2 讲 - 算法2','74680818050447488b28df117f374197.png',NULL,87462,'2026-03-06 17:31:37'),(65,9,'image','第 3 讲 - 算法3','ccd52ca0c38b43f1812fc3e2d507bb3e.png',NULL,94879,'2026-03-06 17:31:41'),(66,9,'image','第 4 讲 - 算法4','ec01b61013f745e4ab947b53416a31c5.png',NULL,81133,'2026-03-06 17:31:47'),(67,9,'image','第 5 讲 - 算法5','4f5c168124d74f6185a7694aa6d50cad.png',NULL,85975,'2026-03-06 17:31:52'),(68,9,'image','第 6 讲 - 算法6','b9516a291d7f4f2fb6c39137a0cb991e.png',NULL,112736,'2026-03-06 17:31:57'),(69,9,'image','第 7 讲 - 算法7','4c010be93eb54cd78f6961a528314836.png',NULL,98197,'2026-03-06 17:32:02'),(70,9,'image','第 8 讲 - 算法8','372e4c42ed874dfc88ce47c0eb806716.png',NULL,126489,'2026-03-06 17:32:07'),(71,8,'image','第 1 讲 - Java1','dbc9876e356047ba8f73b8cd22a98f41.png',NULL,83890,'2026-03-06 17:36:28'),(72,8,'image','第 2 讲 - Java2','168cf59e532a4cc680d97fd6ae15a5dd.png',NULL,85016,'2026-03-06 17:36:33'),(73,8,'image','第 3 讲 - Java3','308ea8e059da48ff86b48bf6d0cf6299.png',NULL,90381,'2026-03-06 17:36:37'),(74,8,'image','第 4 讲 - Java4','19eebb0efee6492aa26339ad321403de.png',NULL,71148,'2026-03-06 17:36:42'),(75,8,'image','第 5 讲 - Java5','ddf98db8d9114bac82afb0a90032c31b.png',NULL,135055,'2026-03-06 17:36:46'),(76,8,'image','第 6 讲 - Java6','0585a33fdc8449d49c6a86461b42cd2f.png',NULL,114428,'2026-03-06 17:36:52'),(77,8,'image','第 7 讲 - Java7','d62586fb25b44d2cab39d313cc8de76e.png',NULL,120841,'2026-03-06 17:36:57'),(78,8,'image','第 8 讲 - Java8','e1252a15dfb54bdba406e9c45ac22198.png',NULL,147414,'2026-03-06 17:37:03'),(79,8,'image','第 9 讲 - Java9','57f092cfd02c4e1b828e8f59b34a4054.png',NULL,106093,'2026-03-06 17:37:08'),(80,8,'image','第 10 讲 - Java10','9ee89303c2ab48bf9a1d874d482f357e.png',NULL,139088,'2026-03-06 17:37:14'),(81,8,'image','第 11 讲 - Java11','c694edb28a9a457f969b6b30dc23025f.png',NULL,105882,'2026-03-06 17:37:20');
+/*!40000 ALTER TABLE `contents` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `courses`
+--
+
+DROP TABLE IF EXISTS `courses`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `courses` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `title` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `teacher_id` int NOT NULL,
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_courses_teacher_id` (`teacher_id`),
+  KEY `ix_courses_title` (`title`),
+  CONSTRAINT `courses_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `courses`
+--
+
+LOCK TABLES `courses` WRITE;
+/*!40000 ALTER TABLE `courses` DISABLE KEYS */;
+INSERT INTO `courses` VALUES (1,'高等数学','极限、导数与积分的系统学习',2,'published','2026-02-28 20:48:39','2026-03-06 11:52:46'),(2,'Python 数据分析','Pandas、NumPy 与可视化实战',2,'published','2026-02-28 20:48:39','2026-03-06 11:52:45'),(3,'数据库原理','关系模型、SQL 与索引优化',2,'published','2026-02-28 20:48:39','2026-03-01 06:09:02'),(5,'操作系统基础','进程线程、内存与文件系统',2,'published','2026-02-28 20:48:39','2026-03-01 05:49:26'),(7,'数据结构','线性结构、树形结构与查找排序',2,'published','2026-03-06 11:53:43','2026-03-06 17:10:32'),(8,'Java语言程序设计','核心语法、面向对象、异常处理、集合框架、IO操作与跨平台开发基础',6,'published','2026-03-06 11:54:13','2026-03-06 17:12:58'),(9,'算法设计与分析','分治、动态规划、贪心策略、回溯算法与复杂度分析',6,'published','2026-03-06 11:54:36','2026-03-06 17:13:26'),(10,'编译原理','词法分析、语法分析、语义分析、中间代码生成、代码优化与目标代码生成',6,'published','2026-03-06 11:54:54','2026-03-06 17:13:46'),(11,'自然语言处理','中文分词、词性标注、句法分析、语义理解、机器翻译与文本挖掘',6,'published','2026-03-06 11:58:52','2026-03-06 17:14:05'),(12,'网络与信息安全','',2,'draft','2026-03-06 12:04:11','2026-03-06 12:04:11');
+/*!40000 ALTER TABLE `courses` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `enrollments`
+--
+
+DROP TABLE IF EXISTS `enrollments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `enrollments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `course_id` int NOT NULL,
+  `student_id` int NOT NULL,
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `enrolled_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_course_student` (`course_id`,`student_id`),
+  KEY `ix_enrollments_student_id` (`student_id`),
+  KEY `ix_enrollments_course_id` (`course_id`),
+  CONSTRAINT `enrollments_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`),
+  CONSTRAINT `enrollments_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `enrollments`
+--
+
+LOCK TABLES `enrollments` WRITE;
+/*!40000 ALTER TABLE `enrollments` DISABLE KEYS */;
+INSERT INTO `enrollments` VALUES (1,1,1,'dropped','2026-02-28 20:48:39'),(2,2,1,'dropped','2026-02-28 20:48:39'),(4,5,1,'enrolled','2026-02-28 17:02:23'),(5,5,3,'enrolled','2026-03-02 10:23:05'),(6,11,8,'enrolled','2026-03-07 07:27:47');
+/*!40000 ALTER TABLE `enrollments` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `messages`
+--
+
+DROP TABLE IF EXISTS `messages`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `messages` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `course_id` int NOT NULL,
+  `sender_id` int NOT NULL,
+  `receiver_id` int DEFAULT NULL,
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_messages_sender_id` (`sender_id`),
+  KEY `ix_messages_course_id` (`course_id`),
+  KEY `ix_messages_receiver_id` (`receiver_id`),
+  CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`),
+  CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `messages_ibfk_3` FOREIGN KEY (`receiver_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `messages`
+--
+
+LOCK TABLES `messages` WRITE;
+/*!40000 ALTER TABLE `messages` DISABLE KEYS */;
+INSERT INTO `messages` VALUES (1,1,1,NULL,'老师好，极限这块我还想再练几道题。','2026-02-28 20:48:39'),(2,1,2,1,'没问题，我稍后补充练习题。','2026-02-28 20:48:39'),(3,2,1,NULL,'Pandas 的 groupby 有推荐资料吗？','2026-02-28 20:48:39'),(4,5,2,NULL,'123','2026-02-28 15:34:04'),(5,1,2,NULL,'123','2026-02-28 15:34:27'),(6,5,2,NULL,'123','2026-02-28 17:07:09'),(7,5,1,NULL,'大家好','2026-03-02 08:10:13'),(8,3,2,NULL,'这个课程的技巧有这些','2026-03-06 07:20:23');
+/*!40000 ALTER TABLE `messages` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `notes`
+--
+
+DROP TABLE IF EXISTS `notes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `notes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `title` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_notes_user_id` (`user_id`),
+  CONSTRAINT `notes_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `notes`
+--
+
+LOCK TABLES `notes` WRITE;
+/*!40000 ALTER TABLE `notes` DISABLE KEYS */;
+INSERT INTO `notes` VALUES (1,1,'数据库1','数据库知识：\n1.123\n2.\n3.','2026-03-01 10:39:19','2026-03-01 11:00:08'),(4,2,'新建笔记','1234\n','2026-03-05 16:32:57','2026-03-06 06:37:58'),(5,7,'优化内容','1.播放预览，自适应\n3.做课程按钮视图，上下滑动太麻烦了，一个按钮一个视图挺好','2026-03-06 17:41:55','2026-03-07 07:16:21');
+/*!40000 ALTER TABLE `notes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `progress`
+--
+
+DROP TABLE IF EXISTS `progress`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `progress` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `content_id` int NOT NULL,
+  `student_id` int NOT NULL,
+  `progress_percent` int NOT NULL,
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `last_viewed_at` datetime NOT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_content_student_progress` (`content_id`,`student_id`),
+  KEY `ix_progress_content_id` (`content_id`),
+  KEY `ix_progress_student_id` (`student_id`),
+  CONSTRAINT `progress_ibfk_1` FOREIGN KEY (`content_id`) REFERENCES `contents` (`id`),
+  CONSTRAINT `progress_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `progress`
+--
+
+LOCK TABLES `progress` WRITE;
+/*!40000 ALTER TABLE `progress` DISABLE KEYS */;
+INSERT INTO `progress` VALUES (8,51,8,100,'completed','2026-03-07 07:27:56','2026-03-07 07:27:56');
+/*!40000 ALTER TABLE `progress` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `review_likes`
+--
+
+DROP TABLE IF EXISTS `review_likes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `review_likes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `review_id` int NOT NULL,
+  `user_id` int NOT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_review_user_like` (`review_id`,`user_id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `review_likes_ibfk_1` FOREIGN KEY (`review_id`) REFERENCES `reviews` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `review_likes_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `review_likes`
+--
+
+LOCK TABLES `review_likes` WRITE;
+/*!40000 ALTER TABLE `review_likes` DISABLE KEYS */;
+INSERT INTO `review_likes` VALUES (3,1,1,'2026-03-01 07:26:05'),(6,1,6,'2026-03-02 10:22:42'),(7,1,2,'2026-03-06 16:32:43');
+/*!40000 ALTER TABLE `review_likes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `reviews`
+--
+
+DROP TABLE IF EXISTS `reviews`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `reviews` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `course_id` int NOT NULL,
+  `user_id` int NOT NULL,
+  `rating` int NOT NULL,
+  `comment` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `created_at` datetime DEFAULT NULL,
+  `reply_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `reply_time` datetime DEFAULT NULL,
+  `likes_count` int DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `ix_reviews_user_id` (`user_id`),
+  KEY `ix_reviews_course_id` (`course_id`),
+  CONSTRAINT `reviews_ibfk_1` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`),
+  CONSTRAINT `reviews_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `reviews`
+--
+
+LOCK TABLES `reviews` WRITE;
+/*!40000 ALTER TABLE `reviews` DISABLE KEYS */;
+INSERT INTO `reviews` VALUES (1,5,1,4,'很可以，能学到不少有用的东西','2026-03-01 05:40:49','有用就好','2026-03-02 08:11:33',3);
+/*!40000 ALTER TABLE `reviews` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `teacher_invite_codes`
+--
+
+DROP TABLE IF EXISTS `teacher_invite_codes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `teacher_invite_codes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_used` tinyint(1) DEFAULT NULL,
+  `expires_at` datetime NOT NULL,
+  `used_by_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`),
+  KEY `used_by_id` (`used_by_id`),
+  CONSTRAINT `teacher_invite_codes_ibfk_1` FOREIGN KEY (`used_by_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `teacher_invite_codes`
+--
+
+LOCK TABLES `teacher_invite_codes` WRITE;
+/*!40000 ALTER TABLE `teacher_invite_codes` DISABLE KEYS */;
+INSERT INTO `teacher_invite_codes` VALUES (1,'TCH-YYYY2026',1,'2026-03-09 14:46:51',6),(2,'TCH-063C7F7F',0,'2026-03-03 09:14:29',NULL);
+/*!40000 ALTER TABLE `teacher_invite_codes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `users`
+--
+
+DROP TABLE IF EXISTS `users`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `username` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `email` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `password_hash` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `role` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  `gender` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '未知',
+  `hobby` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ix_users_username` (`username`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `users`
+--
+
+LOCK TABLES `users` WRITE;
+/*!40000 ALTER TABLE `users` DISABLE KEYS */;
+INSERT INTO `users` VALUES (1,'stu2',NULL,'scrypt:32768:8:1$L2y3y5KQVGDUmzeR$cdeff6deb40ed5aa297f266bc440dd7c1fa2fffd22979aeaf4289c4579dfcfdaaff1a2cb2d1c58d98f2a672e09278c6a267b39bf4d98e56d589ee1c7bd2d20ab','student','active','2026-02-27 17:16:20','2026-03-02 11:07:53','未知','nh'),(2,'tea1',NULL,'scrypt:32768:8:1$ZdIPsaiiawhj48LK$2f7928360787b3365b1aa8ee0d2a0cc6b83f935a538dc0fa6d81569e192bfbf084c9256561fe5846a7e984d0a14839ae9b8e355e8ddeb66605aec3273b8b1090','teacher','active','2026-02-27 17:45:28','2026-03-06 07:19:28','未知','大家好'),(3,'stu1',NULL,'scrypt:32768:8:1$5MoK2vcXRXciP562$b62ac89d937572f8c62dbdb828b9516c8f4770cd3b23bdc4e4e57c74d85401650172f0df40ff7f010ac3a4c7bc5be23a4274a69592d71b7ad5d57fdc1fe2967b','student','active','2026-02-28 12:32:35','2026-02-28 12:32:35','未知',''),(4,'stu3','3526712486@qq.com','scrypt:32768:8:1$2CNRSHK3YSVyCm9D$fb41330dab023ea989791e02fa96382d8180021b24d175c64992217e400757ed00818166fe5c843c1313a690c66cadbe7a651b6235f2fbd2dd35b77fe781ed33','student','active','2026-03-01 11:42:10','2026-03-01 11:42:10','未知',''),(6,'tea2','2696053735@qq.com','scrypt:32768:8:1$nE7L4QtwgB8HdIxf$6553b9edaa24b56b752947aeaa807d2467bc5c0907e904ec627de8a81f4936bbf4571fadc2c27e631ce3e5ba482be9add51a4bf788cd6ffc107b24e7fe0e0157','teacher','active','2026-03-02 06:53:02','2026-03-02 06:53:02','未知',''),(7,'admin','admin_01@example.com','scrypt:32768:8:1$KbZBDWohuHFKYUTJ$d3c7e8ce82756bd7cd9f3a7ed0a8a0e03f77ef8bd71fe00d90feaec71b6cb362febfc06d11d3dbec6601518e027143b525d6aaab04d41cdd6e238acd76965014','admin','active','2026-03-06 11:22:46','2026-03-06 11:22:46','未知',''),(8,'stu4','stu4@local.test','scrypt:32768:8:1$dU4UWt5iKX4BiXIX$a4eaf940641fc8c2cea63090c8005de2488897566ff12639f9a86aac11dcb909045062bc538c44898de10abcbcf62be473fdece2c8634c0d5a203a82aad27b95','student','active','2026-03-07 07:22:31','2026-03-07 07:22:31','未知',''),(9,'stu5','stu5@local.test','scrypt:32768:8:1$eRTY98KIzQZJU4H5$7585bf13f09137cb543edf11baf41398d006a9767e7f9f495e612e55fae9419cef11a49d3d9d9017d85c3d58679f3823aee4b88bac54a842332d189bd6f71484','student','active','2026-03-07 07:22:31','2026-03-07 07:22:31','未知',''),(10,'stu6','stu6@local.test','scrypt:32768:8:1$JU6W7Db35sUrMdoo$9a5fdf16054e285e2c15d73fe97c9000d283f61f04ccae9c0fa88718f01eb1c90f61771aa633604116334cb72b3555551848bfbcf2a32785c9e8106e2a0f4e5e','student','active','2026-03-07 07:22:31','2026-03-07 07:22:31','未知',''),(11,'stu7','stu7@local.test','scrypt:32768:8:1$7FdX3lVhw2J3jnLz$ea65eb6ab1e06db1467137832dd256a521e1dbccc5bb2f73beb4d229e37affe1da22d35b65cb1c64e8d5439967199e8468563bd200da34ea23e8397eea9e7c53','student','active','2026-03-07 07:22:31','2026-03-07 07:22:31','未知',''),(12,'stu8','stu8@local.test','scrypt:32768:8:1$mNwldkUZ8a3e8WgN$ad8c5f00649dc96053639df89308c30283e8306f0077603a797e9c8f44f1bc6172f290eda10da86a423703875f379aa57065c315490577f66cce1c2843b4b279','student','active','2026-03-07 07:22:32','2026-03-07 07:22:32','未知',''),(13,'stu9','stu9@local.test','scrypt:32768:8:1$MXqeKD5urMZUvIs6$4ece795c96e0234c7f09a900c1e1256e6c51d741b8f893e0398852ca980c8ccc48b6d04db92b187350d132b9d1419fb828c55af87bd30630f4004a7001c27f5e','student','active','2026-03-07 07:22:32','2026-03-07 07:22:32','未知',''),(14,'stu10','stu10@local.test','scrypt:32768:8:1$F2OyfDVNgtp6lehN$637e8a3c77e85c9abaab297e467ae202a769b9f02190cf01525749eac17078b0e2447a22666a8d521f27b21ce32e9a79b11a0d0bb5de2013f83264e6d2b2946e','student','active','2026-03-07 07:22:32','2026-03-07 07:22:32','未知',''),(15,'stu11','stu11@local.test','scrypt:32768:8:1$KWFPsNfakyEF54wh$ddf52487ec64ff00f5eb3eeb7e1ec20a092e854041e6a51b2305e6190ee74e4b1439c582fb2cc1920765f0739b0ed805ddcdc637b27a42eaac19a3ef9efc1895','student','active','2026-03-07 07:22:32','2026-03-07 07:22:32','未知',''),(16,'stu12','stu12@local.test','scrypt:32768:8:1$VscySmFP1VG1EZpG$b54687f69ace4e52e31a554e17364f1fffb72693d3b0e935e11ea02805778cb874de16ec98ac543791c97154b6a57b377e043360667e064b6bd56ad1187e57d9','student','active','2026-03-07 07:22:32','2026-03-07 07:22:32','未知',''),(17,'stu13','stu13@local.test','scrypt:32768:8:1$LLjFR0HGOzMHrvT4$9560ea1be8b3ea608dc06964554a0c4579f35b1f4166ee97708f72ccb32bee9541cdb93f5689c71427ebaf2a34715ba10ade78c95d80f3c5bc2c5777e277ed36','student','active','2026-03-07 07:22:32','2026-03-07 07:22:32','未知',''),(18,'stu14','stu14@local.test','scrypt:32768:8:1$zmwV2EiXAsgrDk8I$e7fb0236a4001b2bb3bc46d0ae81a18396085a2d42563cd9224e1a8d667d7835a15bb838f2e23f73d325c8f892f43d8d384acf86d87b2f2da5dae9ba4e9e52b0','student','active','2026-03-07 07:22:33','2026-03-07 07:22:33','未知',''),(19,'stu15','stu15@local.test','scrypt:32768:8:1$dRjTK4dfcWy7PQxi$d21bc9bd31433c928ff574152f17844cf86a4f2e64fe04acfc172472cab647dffe7a7b02e0b119eeba421f3140b8e14d1b2c4cf5b24a073991e58fb8fd39da80','student','active','2026-03-07 07:22:33','2026-03-07 07:22:33','未知',''),(20,'stu16','stu16@local.test','scrypt:32768:8:1$3hHoa1SuN6shiz0P$b5ca44c293f95cf1df7d47bc558fdac5077415809365c218f8c7653f96857e96897c4cb655602060490d0f8474a91546b3be22aab723dc9652d061c32fb8a8ac','student','active','2026-03-07 07:22:33','2026-03-07 07:22:33','未知',''),(21,'stu17','stu17@local.test','scrypt:32768:8:1$IJpKg0kYOURxOEEp$291b49b82f45a28d7412d9d6ad4f50c7732c7c4ff247d4193c29829ce5558c1ff7298e034086ac658f3da188f2ae4cf5dad592bfd57f8b8228738cdd62b835cb','student','active','2026-03-07 07:22:33','2026-03-07 07:22:33','未知',''),(22,'stu18','stu18@local.test','scrypt:32768:8:1$jPcFckNqVrSUUgLF$9daceff98ec003c4293e678e8e5ed44b56b913e261da71a1e3f29d999c5315c0f679828a92a3f8128a4b9384487eefc1486ea78bf67a63a300de502259351ed8','student','active','2026-03-07 07:22:33','2026-03-07 07:22:33','未知',''),(23,'stu19','stu19@local.test','scrypt:32768:8:1$6oq5cMK0BKXGFdLN$2a3e86811471e63f5d3833164547fde76435b140704d68ae107bceae486c65a1e1c07e98227a78fa35dc3881cf1cf040b1534cb227a9c283547e91e2e5f83937','student','active','2026-03-07 07:22:33','2026-03-07 07:22:33','未知',''),(24,'stu20','stu20@local.test','scrypt:32768:8:1$bxlEfCoO5HtRsFFk$71d56bbaf523c3c8150bd622b04e35d9309cdc25dc532e6727ce2a21e4924f5c81ae1c6d0118a28d432b2a6ba8e3bb966105b94c221eb7ee5848b612152d4b04','student','active','2026-03-07 07:22:34','2026-03-07 07:22:34','未知',''),(25,'stu21','stu21@local.test','scrypt:32768:8:1$nBlbLSStN5vFQ1XD$ba632b05bd27a0384a7892342f3c003b2226d90fbe482480f547788eada00af087472a4a17c80fdb99403ca15b52f15d6c45c134471b550765f3eba5ec1371c0','student','active','2026-03-07 07:22:34','2026-03-07 07:22:34','未知',''),(26,'stu22','stu22@local.test','scrypt:32768:8:1$tTFxOqqEQ7kPsDMb$cd9fbf7acb319c53e9b4530d785d5cf2476e294956a300dae6cab3dbe1d906fc8dc8bbadb2c98e6af9a9d3d0e1f51dff02a956b134ec9ddb50a62350747fc37a','student','active','2026-03-07 07:22:34','2026-03-07 07:22:34','未知',''),(27,'stu23','stu23@local.test','scrypt:32768:8:1$jeuFyb49HNFaBYOJ$8234785db9ec53e19d68692aaafaa2f4d03e67569a601e5540303d7218bf528c3396c9ab53580efcb7d7ddc443acb11c6e07804099ab6175fe0fd322b616ce2c','student','active','2026-03-07 07:22:34','2026-03-07 07:22:34','未知',''),(28,'stu24','stu24@local.test','scrypt:32768:8:1$RVWts04JKEgAd1kl$d485e10455e217878e330bb777f1907a2c91a6654883e45c36edd3a7d9d703c41645c88658b42b4ad46115fa7e4582a947bb35a23c496137880b247be3040ce6','student','active','2026-03-07 07:22:34','2026-03-07 07:22:34','未知',''),(29,'stu25','stu25@local.test','scrypt:32768:8:1$IBbNPbxgKc4WvRIJ$f7a75c39b0ff98be0a5ae216df0e4c8713b975303e53128ab739d030e9e029f0dfcac7fcc0ab324dbce36138fedbe5a5712f42ed766c140ac7b10aa06019fa7a','student','active','2026-03-07 07:22:34','2026-03-07 07:22:34','未知',''),(30,'stu26','stu26@local.test','scrypt:32768:8:1$0A9AenJDqebiL1bN$661122429db7bb394a5933cb2951dfe1b57d9ed9b238dca2d3a53632e79ee8621e7231652da117d9a45e341d8433592e663669dc57b475aba211002f6d9ef88b','student','active','2026-03-07 07:22:34','2026-03-07 07:22:34','未知',''),(31,'stu27','stu27@local.test','scrypt:32768:8:1$NkprKGsmybe2rRkb$92aa806094ba6d3a4d920e07a5df682fbb4d246111a7798dddca0f1cd36bcad8ea54d1985c65369c5a8200da8a7995ca0bf4e298e2c7daaf5289e3ebd5e79c4f','student','active','2026-03-07 07:22:35','2026-03-07 07:22:35','未知',''),(32,'stu28','stu28@local.test','scrypt:32768:8:1$LxKtt6vfV88HiKyL$0dd96a68ee2983249e0888633b8c32ed5c45a5d5a47b93e0f56d420d970dca619538978f58c9b705a3f12a24caf190bc2701b2bfcb0a422a32ce5edb6a9be612','student','active','2026-03-07 07:22:35','2026-03-07 07:22:35','未知',''),(33,'stu29','stu29@local.test','scrypt:32768:8:1$vkQ8MfxbQs6JaNJC$0006fdbcf8d999d90e6be000bcbfad8e0dcce79d2802ad76984310f9d26f67ae55249b1a64a90af326e8174578cc452d325a0eee0a02b6e31e57aee9fef64d3e','student','active','2026-03-07 07:22:35','2026-03-07 07:22:35','未知',''),(34,'stu30','stu30@local.test','scrypt:32768:8:1$irVIok07x1qrOhdT$e1e9492074e57fc9addb5f6559193d235b25c40662b4c68953936afdcb3310f70222b29f90a2b9af3148710045fef45b3459ed6954271485d0bedb0b21d42647','student','active','2026-03-07 07:22:35','2026-03-07 07:22:35','未知','');
+/*!40000 ALTER TABLE `users` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `verify_codes`
+--
+
+DROP TABLE IF EXISTS `verify_codes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `verify_codes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `email` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `expires_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_verify_codes_email` (`email`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `verify_codes`
+--
+
+LOCK TABLES `verify_codes` WRITE;
+/*!40000 ALTER TABLE `verify_codes` DISABLE KEYS */;
+INSERT INTO `verify_codes` VALUES (4,'2696058785@qq.com','555678','2026-03-02 06:43:15');
+/*!40000 ALTER TABLE `verify_codes` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-03-07 16:10:03
