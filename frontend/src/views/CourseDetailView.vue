@@ -83,24 +83,54 @@
       </div>
       
       <div class="player-container" style="background: #000; border-radius: 8px; overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 480px; max-height: 70vh;">
-        <!-- 视频/音频类 -->
-        <video v-if="['video', 'audio'].includes(currentPlayingContent.type) || currentPlayingUrl.match(/\.(mp4|webm|ogg|mp3|wav)$/i)" 
-               :src="currentPlayingUrl" 
-               controls 
-               autoplay 
-               controlsList="nodownload"
-               style="width: 100%; height: 100%; max-height: 70vh; outline: none;"></video>
-        
-        <!-- 文档/图片类 -->
-        <iframe v-else-if="['doc', 'image'].includes(currentPlayingContent.type) || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(currentPlayingContent.type)"
-                :src="currentPlayingUrl" 
-                style="width: 100%; height: 70vh; border: none; background: #fff;"></iframe>
-        
+        <!-- 视频类 -->
+        <video
+          v-if="currentPreviewKind === 'video'"
+          :src="currentPlayingUrl"
+          controls
+          autoplay
+          controlsList="nodownload"
+          class="media-preview"
+        ></video>
+
+        <!-- 音频类 -->
+        <div v-else-if="currentPreviewKind === 'audio'" class="audio-preview-shell">
+          <audio :src="currentPlayingUrl" controls autoplay controlsList="nodownload" class="audio-preview"></audio>
+        </div>
+
+        <!-- 图片类：保持白底和居中展示，超大图片允许滚动查看细节 -->
+        <div v-else-if="currentPreviewKind === 'image'" class="image-preview-shell">
+          <div class="image-preview-stage">
+            <img :src="currentPlayingUrl" :alt="currentPlayingContent.title" class="image-preview-media" />
+          </div>
+        </div>
+
+        <!-- PDF 直接走浏览器原生预览 -->
+        <iframe
+          v-else-if="currentPreviewKind === 'pdf'"
+          :src="currentPlayingUrl"
+          class="document-preview-frame"
+        ></iframe>
+
+        <!-- 常见 Office 文档通过在线查看器预览 -->
+        <iframe
+          v-else-if="currentPreviewKind === 'office' && officePreviewUrl"
+          :src="officePreviewUrl"
+          class="document-preview-frame"
+        ></iframe>
+
+        <!-- 本地环境下 Office 在线预览通常无法访问 localhost -->
+        <div v-else-if="currentPreviewKind === 'office'" class="preview-fallback">
+          <div class="preview-fallback-icon">DOC</div>
+          <p>当前环境下无法直接在线预览该 Office 文档，请下载后查看，或在部署后的站点中预览。</p>
+          <button class="btn btn-primary preview-download-btn" @click="downloadContent(currentPlayingContent.id)">立即下载</button>
+        </div>
+
         <!-- 其他不支持在线预览的格式 -->
-        <div v-else style="padding: 60px; color: #cbd5e1; text-align: center;">
-          <div style="font-size: 48px; margin-bottom: 16px;">📁</div>
-          <p style="margin-bottom: 24px; font-size: 16px;">该文件格式暂不支持在线预览，请下载后使用本地应用查看。</p>
-          <button class="btn btn-primary" style="padding: 10px 24px; font-size: 16px;" @click="downloadContent(currentPlayingContent.id)">立即下载</button>
+        <div v-else class="preview-fallback">
+          <div class="preview-fallback-icon">文件</div>
+          <p>该文件格式暂不支持在线预览，请下载后使用本地应用查看。</p>
+          <button class="btn btn-primary preview-download-btn" @click="downloadContent(currentPlayingContent.id)">立即下载</button>
         </div>
       </div>
     </section>
@@ -384,6 +414,47 @@ const isTeacherOwner = computed(() => {
 const hasReviewed = computed(() => {
   if (!isStudent.value || !me.value) return false;
   return reviews.value.some(r => r.user_id === me.value.id);
+});
+
+const currentPreviewKind = computed(() => {
+  if (!currentPlayingContent.value) return "";
+
+  const source = [
+    currentPlayingContent.value.type,
+    currentPlayingContent.value.url_or_path,
+    currentPlayingContent.value.title,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (["video"].includes((currentPlayingContent.value.type || "").toLowerCase()) || /\.(mp4|webm|ogg|mov|avi)$/i.test(source)) {
+    return "video";
+  }
+  if (["audio"].includes((currentPlayingContent.value.type || "").toLowerCase()) || /\.(mp3|wav|flac|aac|m4a)$/i.test(source)) {
+    return "audio";
+  }
+  if (["image"].includes((currentPlayingContent.value.type || "").toLowerCase()) || /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i.test(source)) {
+    return "image";
+  }
+  if (["pdf"].includes((currentPlayingContent.value.type || "").toLowerCase()) || /\.pdf$/i.test(source)) {
+    return "pdf";
+  }
+  if (["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes((currentPlayingContent.value.type || "").toLowerCase()) || /\.(doc|docx|ppt|pptx|xls|xlsx)$/i.test(source)) {
+    return "office";
+  }
+  return "unsupported";
+});
+
+const officePreviewUrl = computed(() => {
+  if (currentPreviewKind.value !== "office" || !currentPlayingUrl.value) return "";
+  if (typeof window === "undefined") return "";
+
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return "";
+
+  const absoluteFileUrl = new URL(currentPlayingUrl.value, window.location.origin).href;
+  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteFileUrl)}`;
 });
 
 // 返回课程大厅首页。
@@ -834,6 +905,78 @@ async function deleteContent(contentId) {
 }
 .upload-row input:focus {
   border-color: var(--primary);
+}
+.media-preview {
+  width: 100%;
+  height: 100%;
+  max-height: 70vh;
+  outline: none;
+  background: #000;
+}
+.audio-preview-shell {
+  width: 100%;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+}
+.audio-preview {
+  width: min(720px, calc(100% - 48px));
+}
+.image-preview-shell {
+  width: 100%;
+  height: 70vh;
+  overflow: auto;
+  background: #0f172a;
+}
+.image-preview-stage {
+  min-width: 100%;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+.image-preview-media {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  min-width: min(920px, calc(100% - 48px));
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35);
+}
+.document-preview-frame {
+  width: 100%;
+  height: 70vh;
+  border: none;
+  background: #fff;
+}
+.preview-fallback {
+  padding: 60px;
+  color: #cbd5e1;
+  text-align: center;
+}
+.preview-fallback-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.preview-download-btn {
+  padding: 10px 24px;
+  font-size: 16px;
 }
 .list .item {
   border: 1.5px solid var(--text); /* 加粗内部小块边框 */
