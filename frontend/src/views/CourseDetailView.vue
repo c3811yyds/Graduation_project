@@ -467,6 +467,36 @@ function token() {
   return sessionStorage.getItem("token") || "";
 }
 
+// 从响应头里解析后端下发的下载文件名。
+function parseDownloadFilename(disposition, fallback = "课件") {
+  if (!disposition) return fallback;
+
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const plainMatch = disposition.match(/filename="?([^\";]+)"?/i);
+  return plainMatch?.[1] || fallback;
+}
+
+// 把下载接口返回的 Blob 错误体还原成用户可读的提示。
+async function readBlobErrorMessage(blob, fallback = "下载失败") {
+  if (!(blob instanceof Blob)) return fallback;
+
+  try {
+    const text = await blob.text();
+    const parsed = JSON.parse(text);
+    return parsed?.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 // 统一格式化课程详情页里的时间显示。
 function formatTime(v) {
   if (!v) return "-";
@@ -797,22 +827,45 @@ async function uploadContent() {
     currentPlayingUrl.value = "";
   }
 
-  // [后端映射]: GET /api/contents/<id>/file -> 按资源 ID 流式下载实体资料文件
+// [后端映射]: GET /api/contents/<id>/file -> 按资源 ID 流式下载实体资料文件
 async function downloadContent(contentId) {
+    const t = token();
+    if (!t) {
+      alert("请先登录后再下载");
+      return;
+    }
+
     try {
       if (isStudent.value) {
         // [后端映射]: POST /api/contents/<id>/view -> 下载前同样记录学习行为
         await http.post(`/contents/${contentId}/view`);
         await loadLearningData();
       }
-    } catch {}
-    const t = token();
-    const a = document.createElement("a");
-    a.href = `/api/contents/${contentId}/file?download=1&token=${t}`;
-    a.download = "";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+      const res = await http.get(`/contents/${contentId}/file`, {
+        params: { download: 1 },
+        responseType: "blob",
+      });
+
+      const contentType = res.headers["content-type"] || "";
+      if (contentType.includes("application/json")) {
+        alert(await readBlobErrorMessage(res.data, "下载失败"));
+        return;
+      }
+
+      const fallbackName = contents.value.find((item) => item.id === contentId)?.title || "课件";
+      const fileName = parseDownloadFilename(res.headers["content-disposition"] || "", fallbackName);
+      const blobUrl = window.URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      const blobMessage = await readBlobErrorMessage(e?.response?.data, "");
+      alert(blobMessage || e?.response?.data?.message || "下载失败");
+    }
   }
 
   // [后端映射]: DELETE /api/contents/<id> -> 教师删除此课时文件节点
