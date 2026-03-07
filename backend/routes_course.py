@@ -477,10 +477,16 @@ def my_course_progress(course_id):
         return ok({"progress": 0, "completed": 0, "total": 0})
 
     c_ids = [ct.id for ct in contents]
-    viewed = Progress.query.filter(
-        Progress.student_id == u.id,
-        Progress.content_id.in_(c_ids)
-    ).count()
+    # 进度按“已学习的不同课件数”计算，避免历史重复记录把百分比冲高。
+    viewed = (
+        db.session.query(Progress.content_id)
+        .filter(
+            Progress.student_id == u.id,
+            Progress.content_id.in_(c_ids),
+        )
+        .distinct()
+        .count()
+    )
 
     return ok({
         "progress": int((viewed / total_contents) * 100),
@@ -513,10 +519,16 @@ def get_course_students(course_id):
             continue
         viewed = 0
         if total_contents > 0:
-            viewed = Progress.query.filter(
-                Progress.student_id == student.id,
-                Progress.content_id.in_(c_ids)
-            ).count()
+            # 教师查看学生进度时同样按不同课件去重统计，和学生端口径保持一致。
+            viewed = (
+                db.session.query(Progress.content_id)
+                .filter(
+                    Progress.student_id == student.id,
+                    Progress.content_id.in_(c_ids),
+                )
+                .distinct()
+                .count()
+            )
         progress_pct = int((viewed / total_contents) * 100) if total_contents > 0 else 0
         
         students_data.append({

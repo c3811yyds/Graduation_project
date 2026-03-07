@@ -537,10 +537,16 @@ def user_analytics():
                 total = len(contents)
                 if total > 0:
                     c_ids = [ct.id for ct in contents]
-                    viewed = Progress.query.filter(
-                        Progress.student_id == u.id,
-                        Progress.content_id.in_(c_ids)
-                    ).count()
+                    # 数据总览按不同课件去重统计，和课程详情页进度口径保持一致。
+                    viewed = (
+                        db.session.query(Progress.content_id)
+                        .filter(
+                            Progress.student_id == u.id,
+                            Progress.content_id.in_(c_ids),
+                        )
+                        .distinct()
+                        .count()
+                    )
                     progress_data.append(int((viewed / total) * 100))
                     completed_counts.append(viewed)
                 else:

@@ -3,7 +3,7 @@
     <header class="head">
       <div class="head-row">
         <div>
-          <h1 class="page-title">数据总览分析系统</h1>
+          <h1 class="page-title">数据总览</h1>
           <p class="muted page-subtitle">{{ subtitleText }}</p>
         </div>
         <button class="btn" @click="goHome">返回首页</button>
@@ -17,7 +17,7 @@
       <section v-if="showCoursePager" class="course-pager panel-lite">
         <div class="pager-row">
           <div class="pager-info">
-            <strong>课程切换</strong>
+            <strong>当前课程组</strong>
             <p class="muted pager-desc">
               当前第 {{ coursePage }} / {{ totalCoursePages }} 组
               (课程 ID {{ visibleCourseStartId }} - {{ visibleCourseEndId }})
@@ -39,12 +39,12 @@
 
       <div class="charts-grid">
         <div class="chart-card">
-          <h3>{{ isStudent ? '学习进度对比' : '课程选修人数分布' }}</h3>
+          <h3>{{ isStudent ? '各课程学习进度' : '课程选修人数分布' }}</h3>
           <v-chart class="chart" :option="barChartOption" autoresize />
         </div>
 
         <div class="chart-card">
-          <h3>{{ isStudent ? '各课程完成数量分布' : '课程综合评分对比' }}</h3>
+          <h3>{{ isStudent ? '各课程已学数量分布' : '课程综合评分对比' }}</h3>
           <v-chart class="chart chart-pie" :option="pieChartOption" autoresize />
         </div>
       </div>
@@ -53,20 +53,20 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import http from '../api/http'
+import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import http from "../api/http";
 
-import { use } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import { BarChart, PieChart } from 'echarts/charts'
+import { use } from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import { BarChart, PieChart } from "echarts/charts";
 import {
   GridComponent,
   LegendComponent,
   TitleComponent,
   TooltipComponent,
-} from 'echarts/components'
-import VChart from 'vue-echarts'
+} from "echarts/components";
+import VChart from "vue-echarts";
 
 use([
   CanvasRenderer,
@@ -76,260 +76,261 @@ use([
   TooltipComponent,
   LegendComponent,
   GridComponent,
-])
+]);
 
-const COURSE_PAGE_SIZE = 8
+const COURSE_PAGE_SIZE = 8;
 
-const loading = ref(true)
-const error = ref('')
-const data = ref({})
-const coursePage = ref(1)
+const loading = ref(true);
+const error = ref("");
+const data = ref({});
+const coursePage = ref(1);
 
-const router = useRouter()
+const router = useRouter();
 
-const isStudent = computed(() => data.value?.role === 'student')
-const isAdmin = computed(() => data.value?.role === 'admin')
+const isStudent = computed(() => data.value?.role === "student");
+const isAdmin = computed(() => data.value?.role === "admin");
 
 const subtitleText = computed(() => {
-  if (isAdmin.value) return '全课程选修评分信息'
-  return '实时监控你的教学/学习进度状态'
-})
+  if (isAdmin.value) return "全课程选修评分信息";
+  if (isStudent.value) return "查看各课程学习进度与已学课件分布";
+  return "查看已发布课程的选修人数与综合评分";
+});
 
-const allCourseNames = computed(() => data.value?.courseNames || [])
-const allCourseIds = computed(() => data.value?.courseIds || [])
-const allEnrollCounts = computed(() => data.value?.enrollCounts || [])
-const allReviewAverages = computed(() => data.value?.reviewAverages || [])
-const allProgressRates = computed(() => data.value?.progressRates || [])
-const allCompletedCounts = computed(() => data.value?.completedCounts || [])
+const allCourseNames = computed(() => data.value?.courseNames || []);
+const allCourseIds = computed(() => data.value?.courseIds || []);
+const allEnrollCounts = computed(() => data.value?.enrollCounts || []);
+const allReviewAverages = computed(() => data.value?.reviewAverages || []);
+const allProgressRates = computed(() => data.value?.progressRates || []);
+const allCompletedCounts = computed(() => data.value?.completedCounts || []);
 
 const totalCoursePages = computed(() => {
-  if (isStudent.value) return 1
-  return Math.max(1, Math.ceil(allCourseNames.value.length / COURSE_PAGE_SIZE))
-})
+  if (isStudent.value) return 1;
+  return Math.max(1, Math.ceil(allCourseNames.value.length / COURSE_PAGE_SIZE));
+});
 
-const showCoursePager = computed(() => !isStudent.value && allCourseNames.value.length > COURSE_PAGE_SIZE)
+const showCoursePager = computed(() => !isStudent.value && allCourseNames.value.length > COURSE_PAGE_SIZE);
 
 const courseSliceStart = computed(() => {
-  if (isStudent.value) return 0
-  return (coursePage.value - 1) * COURSE_PAGE_SIZE
-})
+  if (isStudent.value) return 0;
+  return (coursePage.value - 1) * COURSE_PAGE_SIZE;
+});
 
 const courseSliceEnd = computed(() => {
-  if (isStudent.value) return allCourseNames.value.length
-  return courseSliceStart.value + COURSE_PAGE_SIZE
-})
+  if (isStudent.value) return allCourseNames.value.length;
+  return courseSliceStart.value + COURSE_PAGE_SIZE;
+});
 
 const visibleCourseNames = computed(() => {
-  if (isStudent.value) return allCourseNames.value
-  return allCourseNames.value.slice(courseSliceStart.value, courseSliceEnd.value)
-})
+  if (isStudent.value) return allCourseNames.value;
+  return allCourseNames.value.slice(courseSliceStart.value, courseSliceEnd.value);
+});
 
 const visibleCourseIds = computed(() => {
-  if (isStudent.value) return allCourseIds.value
-  return allCourseIds.value.slice(courseSliceStart.value, courseSliceEnd.value)
-})
+  if (isStudent.value) return allCourseIds.value;
+  return allCourseIds.value.slice(courseSliceStart.value, courseSliceEnd.value);
+});
 
 const visibleCourseLabels = computed(() =>
   visibleCourseNames.value.map((name, index) => {
-    const courseId = visibleCourseIds.value[index]
-    return courseId ? `${name} (${courseId})` : name
-  })
-)
+    const courseId = visibleCourseIds.value[index];
+    return courseId ? `${name} (${courseId})` : name;
+  }),
+);
 
 const visibleEnrollCounts = computed(() => {
-  if (isStudent.value) return allEnrollCounts.value
-  return allEnrollCounts.value.slice(courseSliceStart.value, courseSliceEnd.value)
-})
+  if (isStudent.value) return allEnrollCounts.value;
+  return allEnrollCounts.value.slice(courseSliceStart.value, courseSliceEnd.value);
+});
 
 const visibleReviewAverages = computed(() => {
-  if (isStudent.value) return allReviewAverages.value
-  return allReviewAverages.value.slice(courseSliceStart.value, courseSliceEnd.value)
-})
+  if (isStudent.value) return allReviewAverages.value;
+  return allReviewAverages.value.slice(courseSliceStart.value, courseSliceEnd.value);
+});
 
-const visibleProgressRates = computed(() => allProgressRates.value)
-const visibleCompletedCounts = computed(() => allCompletedCounts.value)
+const visibleProgressRates = computed(() => allProgressRates.value);
+const visibleCompletedCounts = computed(() => allCompletedCounts.value);
 
 const visibleCourseStartId = computed(() => {
-  if (!visibleCourseIds.value.length) return '-'
-  return visibleCourseIds.value[0]
-})
+  if (!visibleCourseIds.value.length) return "-";
+  return visibleCourseIds.value[0];
+});
 
 const visibleCourseEndId = computed(() => {
-  if (!visibleCourseIds.value.length) return '-'
-  return visibleCourseIds.value[visibleCourseIds.value.length - 1]
-})
+  if (!visibleCourseIds.value.length) return "-";
+  return visibleCourseIds.value[visibleCourseIds.value.length - 1];
+});
 
 const visibleCourseNamesText = computed(() => {
-  if (!visibleCourseLabels.value.length) return '暂无课程'
-  return visibleCourseLabels.value.join('、')
-})
+  if (!visibleCourseLabels.value.length) return "暂无课程";
+  return visibleCourseLabels.value.join("、");
+});
 
 const coursePageOptions = computed(() => {
-  const result = []
+  const result = [];
   for (let page = 1; page <= totalCoursePages.value; page += 1) {
-    const start = (page - 1) * COURSE_PAGE_SIZE
-    const end = start + COURSE_PAGE_SIZE
-    const ids = allCourseIds.value.slice(start, end)
-    const startId = ids[0] ?? '-'
-    const endId = ids[ids.length - 1] ?? '-'
+    const start = (page - 1) * COURSE_PAGE_SIZE;
+    const end = start + COURSE_PAGE_SIZE;
+    const ids = allCourseIds.value.slice(start, end);
+    const startId = ids[0] ?? "-";
+    const endId = ids[ids.length - 1] ?? "-";
     result.push({
       page,
       label: `第 ${page} 组 (课程 ID ${startId} - ${endId})`,
-    })
+    });
   }
-  return result
-})
+  return result;
+});
 
-// [功能说明]: 点击右上角按钮返回首页。
+// 返回首页。
 function goHome() {
-  router.push('/')
+  router.push("/");
 }
 
-// [功能说明]: 切到上一组课程，配合教师/管理员的大屏分页浏览。
+// 切到上一组课程。
 function prevCoursePage() {
-  if (coursePage.value > 1) coursePage.value -= 1
+  if (coursePage.value > 1) coursePage.value -= 1;
 }
 
-// [功能说明]: 切到下一组课程，继续浏览后续课程数据。
+// 切到下一组课程。
 function nextCoursePage() {
-  if (coursePage.value < totalCoursePages.value) coursePage.value += 1
+  if (coursePage.value < totalCoursePages.value) coursePage.value += 1;
 }
 
-// [功能说明]: 页面初始化时按角色拉取学生、教师或管理员对应的大屏统计数据。
+// 页面进入后按角色加载学生/教师/管理员对应的数据总览。
 onMounted(async () => {
   try {
-    const meRes = await http.get('/users/me')
-    const role = meRes.data?.data?.role
-    const endpoint = role === 'admin' ? '/admin/analytics' : '/users/analytics'
-    const res = await http.get(endpoint)
-    data.value = res.data.data || {}
-    coursePage.value = 1
+    const meRes = await http.get("/users/me");
+    const role = meRes.data?.data?.role;
+    const endpoint = role === "admin" ? "/admin/analytics" : "/users/analytics";
+    const res = await http.get(endpoint);
+    data.value = res.data.data || {};
+    coursePage.value = 1;
   } catch (e) {
-    error.value = e?.response?.data?.message || '获取统计大盘失败'
+    error.value = e?.response?.data?.message || "加载数据总览失败";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-})
+});
 
-// [功能说明]: 生成左侧柱状图配置；学生显示学习进度，教师/管理员显示选修人数。
+// 学生端看课程学习进度，教师/管理员看课程选修人数。
 const barChartOption = computed(() => {
   if (isStudent.value) {
     return {
-      tooltip: { formatter: '{b}: {c}%' },
+      tooltip: { formatter: "{b}: {c}%" },
       grid: { left: 40, right: 20, top: 20, bottom: 70, containLabel: true },
       xAxis: {
-        type: 'category',
+        type: "category",
         data: visibleCourseLabels.value,
         axisLabel: {
           interval: 0,
           rotate: 28,
         },
       },
-      yAxis: { type: 'value', max: 100 },
+      yAxis: { type: "value", max: 100 },
       series: [
         {
           data: visibleProgressRates.value,
-          type: 'bar',
-          itemStyle: { color: '#0ea5e9' },
-          barWidth: '40%',
+          type: "bar",
+          itemStyle: { color: "#0ea5e9" },
+          barWidth: "40%",
         },
       ],
-    }
+    };
   }
 
   return {
-    tooltip: { formatter: '{b}: {c} 人' },
+    tooltip: { formatter: "{b}: {c} 人" },
     grid: { left: 40, right: 20, top: 20, bottom: 78, containLabel: true },
     xAxis: {
-      type: 'category',
+      type: "category",
       data: visibleCourseLabels.value,
       axisLabel: {
         interval: 0,
         rotate: 28,
       },
     },
-    yAxis: { type: 'value' },
+    yAxis: { type: "value" },
     series: [
       {
         data: visibleEnrollCounts.value,
-        type: 'bar',
-        itemStyle: { color: '#10b981' },
-        barWidth: '40%',
+        type: "bar",
+        itemStyle: { color: "#10b981" },
+        barWidth: "40%",
       },
     ],
-  }
-})
+  };
+});
 
-// [功能说明]: 生成右侧饼图配置；学生显示完成数量，教师/管理员显示课程评分。
+// 学生端第二张图展示各课程已学课件数量分布，避免误导成学习进度。
 const pieChartOption = computed(() => {
   if (isStudent.value) {
     const pieData = visibleCourseLabels.value.map((name, index) => ({
       name,
       value: visibleCompletedCounts.value[index] || 0,
-    }))
+    }));
 
     return {
-      tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+      tooltip: { trigger: "item", formatter: "{b}: 已学 {c} 个课件，占已学总量 {d}%" },
       legend: {
         bottom: 0,
-        left: 'center',
+        left: "center",
         itemGap: 12,
         textStyle: {
           width: 130,
-          overflow: 'truncate',
+          overflow: "truncate",
         },
       },
       series: [
         {
-          name: '完成数量',
-          type: 'pie',
-          radius: '44%',
-          center: ['50%', '36%'],
+          name: "已学课件数",
+          type: "pie",
+          radius: "44%",
+          center: ["50%", "36%"],
           data: pieData,
           emphasis: {
             itemStyle: {
               shadowBlur: 10,
               shadowOffsetX: 0,
-              shadowColor: 'rgba(0, 0, 0, 0.5)',
+              shadowColor: "rgba(0, 0, 0, 0.5)",
             },
           },
         },
       ],
-    }
+    };
   }
 
   const pieData = visibleCourseLabels.value.map((name, index) => ({
     name,
     value: visibleReviewAverages.value[index] || 0,
-  }))
+  }));
 
   return {
-    tooltip: { trigger: 'item', formatter: '{b}: {c} 分' },
+    tooltip: { trigger: "item", formatter: "{b}: {c} 分" },
     legend: {
       bottom: 0,
-      left: 'center',
+      left: "center",
       itemGap: 12,
       textStyle: {
         width: 130,
-        overflow: 'truncate',
+        overflow: "truncate",
       },
     },
     series: [
       {
-        name: '课程评分',
-        type: 'pie',
-        radius: ['26%', '48%'],
-        center: ['50%', '33%'],
+        name: "课程评分",
+        type: "pie",
+        radius: ["26%", "48%"],
+        center: ["50%", "33%"],
         itemStyle: {
           borderRadius: 10,
-          borderColor: '#fff',
+          borderColor: "#fff",
           borderWidth: 2,
         },
         data: pieData,
       },
     ],
-  }
-})
+  };
+});
 </script>
 
 <style scoped>
