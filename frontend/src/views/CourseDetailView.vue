@@ -146,41 +146,45 @@
       </p>
     </section>
 
-    <!-- 学习进度板 (教师可见) -->
-    <section v-if="isTeacherOwner" class="panel">
-      <h2>学生学习进度概况</h2>
-      <table v-if="enrolledStudentsData.length" class="progress-table">
-        <thead>
-          <tr>
-            <th>学生姓名</th>
-            <th>已学课件 / 总数</th>
-            <th>进度百分比</th>
-            <th>状态条</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="st in enrolledStudentsData" :key="st.id">
-            <td>{{ st.real_name || st.username }}</td>
-            <td>{{ st.completed }} / {{ st.total }}</td>
-            <td style="font-weight: 600;">{{ st.progress }}%</td>
-            <td>
-              <div class="mini-progress-bg">
-                <div class="mini-progress-fill" :style="{ width: st.progress + '%' }"></div>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-else class="muted">暂无学生选修</p>
-    </section>
+    <!-- 课程详情功能区：横向切换课程内容、留言与评价 -->
+    <section class="panel detail-tabs-panel">
+      <div class="detail-tabs-header">
+        <button
+          class="detail-tab-btn"
+          :class="{ active: activeDetailTab === 'contents' }"
+          @click="activeDetailTab = 'contents'"
+        >
+          课程内容
+        </button>
+        <button
+          v-if="isTeacherOwner"
+          class="detail-tab-btn"
+          :class="{ active: activeDetailTab === 'progress' }"
+          @click="activeDetailTab = 'progress'"
+        >
+          学生进度
+        </button>
+        <button
+          v-if="me"
+          class="detail-tab-btn"
+          :class="{ active: activeDetailTab === 'messages' }"
+          @click="activeDetailTab = 'messages'"
+        >
+          留言
+        </button>
+        <button
+          class="detail-tab-btn"
+          :class="{ active: activeDetailTab === 'reviews' }"
+          @click="activeDetailTab = 'reviews'"
+        >
+          评价
+        </button>
+      </div>
 
-    <!-- 课程内容 -->
-    <section class="panel">
-      <h2>课程内容</h2>
-
-      <template v-if="true">
+      <div v-if="activeDetailTab === 'contents'" class="detail-tab-body">
+        <h2>课程内容</h2>
         <p class="muted" v-if="isStudent && !isEnrolled">（提示：选课后可参与进度记录，非选课状态也可浏览以下内容）</p>
-        <!-- 教师上传 -->
+
         <div v-if="isTeacherOwner" class="upload-box">
           <h3>上传课件（教师）</h3>
           <p class="muted" style="margin-bottom: 12px; font-size: 13px;">
@@ -198,7 +202,10 @@
         <div class="list">
           <article v-for="item in contents" :key="item.id" class="item">
             <div>
-              <h4>{{ item.title }}</h4>
+              <h4 class="content-title-row">
+                <span>{{ item.title }}</span>
+                <span v-if="isStudent && item.is_learned" class="learned-tag">已学习</span>
+              </h4>
               <p class="muted">类型：{{ item.type }}</p>
             </div>
             <div class="actions">
@@ -222,16 +229,39 @@
           </article>
           <p v-if="!contents.length" class="muted">暂无课程内容</p>
         </div>
-      </template>
-    </section>
+      </div>
 
-    <!-- 留言 -->
-    <section class="panel" v-if="me">
-      <h2>课程留言</h2>
-      
-      <p class="muted" v-if="isStudent && !isEnrolled">请先选课后参与留言，当前仅可查看。</p>
+      <div v-else-if="activeDetailTab === 'progress' && isTeacherOwner" class="detail-tab-body">
+        <h2>学生学习进度概况</h2>
+        <table v-if="enrolledStudentsData.length" class="progress-table">
+          <thead>
+            <tr>
+              <th>学生姓名</th>
+              <th>已学课件 / 总数</th>
+              <th>进度百分比</th>
+              <th>状态条</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="st in enrolledStudentsData" :key="st.id">
+              <td>{{ st.real_name || st.username }}</td>
+              <td>{{ st.completed }} / {{ st.total }}</td>
+              <td style="font-weight: 600;">{{ st.progress }}%</td>
+              <td>
+                <div class="mini-progress-bg">
+                  <div class="mini-progress-fill" :style="{ width: st.progress + '%' }"></div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="muted">暂无学生选修</p>
+      </div>
 
-      <template v-if="true">
+      <div v-else-if="activeDetailTab === 'messages'" class="detail-tab-body">
+        <h2>课程留言</h2>
+        <p class="muted" v-if="isStudent && !isEnrolled">请先选课后参与留言，当前仅可查看。</p>
+
         <div class="msg-form" v-if="isTeacher || (isStudent && isEnrolled)">
           <textarea v-model="newMessage" rows="3" placeholder="输入留言内容..." />
           <button class="btn btn-primary" @click="sendMessage">发送留言</button>
@@ -241,7 +271,7 @@
           <li v-for="m in messages" :key="m.id">
             <div class="msg-top">
               <strong :style="m.sender_role === 'teacher' ? 'color: #3b82f6;' : ''">
-                {{ m.sender_name || '用户' + m.sender_id }} 
+                {{ m.sender_name || '用户' + m.sender_id }}
                 <span v-if="m.sender_role === 'teacher'" style="font-size: 0.8em; font-weight: normal; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">老师</span>
               </strong>
               <span class="muted">· {{ formatTime(m.created_at) }}</span>
@@ -251,41 +281,40 @@
         </ul>
 
         <p v-if="!messages.length" class="muted">暂无留言</p>
-      </template>
-    </section>
+      </div>
 
-    <!-- 课程评价模态框与列表区 -->
-    <section class="card detail-section">
-      <h3>课程评价 ({{ reviews.length }})</h3>
-      
-      <ul class="msg-list" v-if="reviews.length > 0">
-        <li v-for="r in reviews" :key="r.id">
-          <div class="msg-top">
-            <strong>{{ r.username }}</strong>
-            <span class="rating-stars">
-              {{ '★'.repeat(r.rating) }}{{ '☆'.repeat(5 - r.rating) }}
-            </span>
-            <span class="muted">· {{ formatTime(r.created_at) }}</span>
-            <div style="flex:1"></div>
-            <button class="btn btn-sm" :class="{ 'btn-primary': r.liked }" @click="toggleReviewLike(r)">
-              赞 {{ r.likes_count }}
-            </button>
-            <button v-if="isTeacherOwner" class="btn btn-sm" @click="replyReview(r)">回复</button>
-            <button v-if="isTeacherOwner" class="btn btn-sm btn-danger" @click="deleteReview(r.id)">删除</button>
-          </div>
-          <div class="msg-body" style="margin-top:0.5rem">
-            {{ r.comment || "没有留下文字评论" }}
-          </div>
-          <div v-if="r.reply_content" class="teacher-reply" style="margin-top: 1rem; padding: 12px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <strong style="color: #1e3a8a; font-size: 0.95rem;">{{ course.teacher_name || '老师' }} <span style="font-weight: normal; color: #64748b; font-size: 0.85rem;">(授课老师)</span></strong>
-              <span class="muted" style="font-size: 0.8rem;">{{ formatTime(r.reply_time) }}</span>
+      <div v-else class="detail-tab-body">
+        <h2>课程评价 ({{ reviews.length }})</h2>
+
+        <ul class="msg-list" v-if="reviews.length > 0">
+          <li v-for="r in reviews" :key="r.id">
+            <div class="msg-top">
+              <strong>{{ r.username }}</strong>
+              <span class="rating-stars">
+                {{ '★'.repeat(r.rating) }}{{ '☆'.repeat(5 - r.rating) }}
+              </span>
+              <span class="muted">· {{ formatTime(r.created_at) }}</span>
+              <div style="flex:1"></div>
+              <button class="btn btn-sm" :class="{ 'btn-primary': r.liked }" @click="toggleReviewLike(r)">
+                赞 {{ r.likes_count }}
+              </button>
+              <button v-if="isTeacherOwner" class="btn btn-sm" @click="replyReview(r)">回复</button>
+              <button v-if="isTeacherOwner" class="btn btn-sm btn-danger" @click="deleteReview(r.id)">删除</button>
             </div>
-            <div style="font-size: 0.95rem; color: #334155; line-height: 1.5; white-space: pre-wrap;">{{ r.reply_content }}</div>
-          </div>
-        </li>
-      </ul>
-      <p v-else class="muted">还没有任何人评价该课程。</p>
+            <div class="msg-body" style="margin-top:0.5rem">
+              {{ r.comment || "没有留下文字评论" }}
+            </div>
+            <div v-if="r.reply_content" class="teacher-reply" style="margin-top: 1rem; padding: 12px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b82f6;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: #1e3a8a; font-size: 0.95rem;">{{ course.teacher_name || '老师' }} <span style="font-weight: normal; color: #64748b; font-size: 0.85rem;">(授课老师)</span></strong>
+                <span class="muted" style="font-size: 0.8rem;">{{ formatTime(r.reply_time) }}</span>
+              </div>
+              <div style="font-size: 0.95rem; color: #334155; line-height: 1.5; white-space: pre-wrap;">{{ r.reply_content }}</div>
+            </div>
+          </li>
+        </ul>
+        <p v-else class="muted">还没有任何人评价该课程。</p>
+      </div>
     </section>
 
     <!-- 课程信息编辑弹窗 -->
@@ -390,6 +419,7 @@ const uploadTitle = ref("");
 
 const currentPlayingContent = ref(null);
 const currentPlayingUrl = ref("");
+const activeDetailTab = ref("contents");
 
 const isStudent = computed(() => me.value?.role === "student");
 const isTeacher = computed(() => me.value?.role === "teacher");
@@ -494,6 +524,7 @@ async function loadMe() {
   const t = token();
   if (!t) {
     me.value = null;
+    if (activeDetailTab.value === "messages") activeDetailTab.value = "contents";
     return;
   }
   try {
@@ -503,6 +534,7 @@ async function loadMe() {
   } catch {
     me.value = null;
     sessionStorage.removeItem("token");
+    if (activeDetailTab.value === "messages") activeDetailTab.value = "contents";
   }
 }
 
@@ -907,6 +939,35 @@ async function deleteContent(contentId) {
   background: var(--card);
   box-shadow: var(--shadow);
 }
+.detail-tabs-panel {
+  padding-top: 18px;
+}
+.detail-tabs-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.detail-tab-btn {
+  border: 1.5px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.detail-tab-btn.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+}
+.detail-tab-body h2,
+.detail-tab-body h3 {
+  margin-top: 0;
+}
 .warn {
   border-color: #D97706;
   background: #FEF3C7;
@@ -1024,6 +1085,25 @@ async function deleteContent(contentId) {
   gap: 10px;
   background: var(--card);
   box-shadow: 2px 2px 0px rgba(168, 162, 158, 0.2);
+}
+.content-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+.learned-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #86efac;
 }
 .msg-form textarea {
   width: 100%;

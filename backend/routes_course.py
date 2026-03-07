@@ -132,8 +132,8 @@ def serialize_course(c: Course, u: User | None = None):
     return data
 
 
-def serialize_content(x: Content):
-    """序列化课件内容信息。"""
+def serialize_content(x: Content, is_learned: bool = False):
+    """序列化课件内容信息，并按需附带学生学习标记。"""
     return {
         "id": x.id,
         "course_id": x.course_id,
@@ -143,6 +143,7 @@ def serialize_content(x: Content):
         "duration_seconds": x.duration_seconds,
         "size_bytes": x.size_bytes,
         "created_at": x.created_at.isoformat() if x.created_at else None,
+        "is_learned": is_learned,
     }
 
 
@@ -577,7 +578,19 @@ def list_course_contents(course_id):
         return err("非公开内容无法未授权预览", status=403)
 
     rows = Content.query.filter_by(course_id=course_id).order_by(Content.id.desc()).all()
-    return ok([serialize_content(x) for x in rows])
+    learned_ids = set()
+    if u and is_student(u) and rows:
+        row_ids = [x.id for x in rows]
+        learned_ids = {
+            content_id
+            for (content_id,) in db.session.query(Progress.content_id)
+            .filter(
+                Progress.student_id == u.id,
+                Progress.content_id.in_(row_ids),
+            )
+            .all()
+        }
+    return ok([serialize_content(x, x.id in learned_ids) for x in rows])
 
 
 # [前端对应]: 课程详情页按课件 id 获取单条内容详情
