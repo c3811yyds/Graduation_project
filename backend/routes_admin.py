@@ -26,18 +26,22 @@ admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
 
 def ok(data=None, message="ok", code=0, status=200):
+    """返回统一成功响应。"""
     return jsonify({"code": code, "message": message, "data": data}), status
 
 
 def err(message="error", code=1, status=400, data=None):
+    """返回统一错误响应。"""
     return jsonify({"code": code, "message": message, "data": data}), status
 
 
 def now():
+    """返回当前 UTC 时间。"""
     return datetime.utcnow()
 
 
 def as_int(v):
+    """安全地把输入转成整数。"""
     try:
         return int(v)
     except Exception:
@@ -45,14 +49,17 @@ def as_int(v):
 
 
 def role_of(user: User | None):
+    """读取用户角色并统一为小写。"""
     return ((user.role if user else "") or "").strip().lower()
 
 
 def is_admin(user: User | None):
+    """判断用户是否为管理员。"""
     return role_of(user) == "admin"
 
 
 def current_user():
+    """按 JWT 身份读取当前有效用户。"""
     uid = as_int(get_jwt_identity())
     if not uid:
         return None
@@ -63,6 +70,7 @@ def current_user():
 
 
 def require_admin():
+    """校验当前请求是否来自管理员。"""
     user = current_user()
     if not user:
         return None, err("请先登录", status=401)
@@ -72,10 +80,12 @@ def require_admin():
 
 
 def iso(value):
+    """把时间对象序列化为 ISO 字符串。"""
     return value.isoformat() if value else None
 
 
 def serialize_user(user: User):
+    """序列化用户基础信息。"""
     return {
         "id": user.id,
         "username": user.username,
@@ -88,6 +98,7 @@ def serialize_user(user: User):
 
 
 def serialize_review(review: Review):
+    """序列化管理员视角下的评价信息。"""
     course = Course.query.get(review.course_id)
     author = User.query.get(review.user_id)
     return {
@@ -104,6 +115,7 @@ def serialize_review(review: Review):
 
 
 def serialize_message(message: Message):
+    """序列化管理员视角下的留言信息。"""
     course = Course.query.get(message.course_id)
     sender = User.query.get(message.sender_id)
     receiver = User.query.get(message.receiver_id) if message.receiver_id else None
@@ -121,6 +133,7 @@ def serialize_message(message: Message):
 
 
 def serialize_invite(code: TeacherInviteCode):
+    """序列化教师邀请码信息。"""
     used_by = User.query.get(code.used_by_id) if code.used_by_id else None
     return {
         "id": code.id,
@@ -133,7 +146,8 @@ def serialize_invite(code: TeacherInviteCode):
 
 
 def bootstrap_admin_account():
-    # Optional bootstrap. If the email already exists, only promote it to admin.
+    """按环境变量自动创建或提升管理员账号。"""
+    # 如果邮箱已存在，只执行提权和激活，不重置原密码。
     admin_email = (os.getenv("ADMIN_INIT_EMAIL") or "").strip()
     admin_username = (os.getenv("ADMIN_INIT_USERNAME") or "admin").strip() or "admin"
     admin_password = os.getenv("ADMIN_INIT_PASSWORD") or ""
@@ -180,6 +194,7 @@ def bootstrap_admin_account():
 @admin_bp.get("/overview")
 @jwt_required()
 def admin_overview():
+    """返回管理员首页概览统计。"""
     _, denied = require_admin()
     if denied:
         return denied
@@ -207,6 +222,7 @@ def admin_overview():
 @admin_bp.get("/analytics")
 @jwt_required()
 def admin_analytics():
+    """返回管理员的数据总览图表数据。"""
     _, denied = require_admin()
     if denied:
         return denied
@@ -245,6 +261,7 @@ def admin_analytics():
 @admin_bp.get("/users")
 @jwt_required()
 def admin_list_users():
+    """按分页和筛选条件返回用户列表。"""
     _, denied = require_admin()
     if denied:
         return denied
@@ -307,6 +324,7 @@ def admin_list_users():
 @admin_bp.patch("/users/<int:user_id>/status")
 @jwt_required()
 def admin_update_user_status(user_id):
+    """更新指定用户的启用或停用状态。"""
     admin_user, denied = require_admin()
     if denied:
         return denied
@@ -337,6 +355,7 @@ def admin_update_user_status(user_id):
 @admin_bp.get("/reviews")
 @jwt_required()
 def admin_list_reviews():
+    """返回全站评价列表。"""
     _, denied = require_admin()
     if denied:
         return denied
@@ -348,6 +367,7 @@ def admin_list_reviews():
 @admin_bp.delete("/reviews/<int:review_id>")
 @jwt_required()
 def admin_delete_review(review_id):
+    """删除指定评价及其点赞记录。"""
     _, denied = require_admin()
     if denied:
         return denied
@@ -365,6 +385,7 @@ def admin_delete_review(review_id):
 @admin_bp.get("/messages")
 @jwt_required()
 def admin_list_messages():
+    """返回全站留言列表。"""
     _, denied = require_admin()
     if denied:
         return denied
@@ -376,6 +397,7 @@ def admin_list_messages():
 @admin_bp.delete("/messages/<int:message_id>")
 @jwt_required()
 def admin_delete_message(message_id):
+    """删除指定留言。"""
     _, denied = require_admin()
     if denied:
         return denied
@@ -392,6 +414,7 @@ def admin_delete_message(message_id):
 @admin_bp.get("/invite-codes")
 @jwt_required()
 def admin_list_invite_codes():
+    """返回教师邀请码列表。"""
     _, denied = require_admin()
     if denied:
         return denied
@@ -405,6 +428,7 @@ def admin_list_invite_codes():
 @admin_bp.post("/invite-codes")
 @jwt_required()
 def admin_create_invite_code():
+    """按有效天数创建新的教师邀请码。"""
     _, denied = require_admin()
     if denied:
         return denied

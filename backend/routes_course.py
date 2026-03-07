@@ -21,22 +21,27 @@ content_bp = Blueprint("contents", __name__, url_prefix="/api/contents")
 # ---------- helpers ----------
 
 def ok(data=None, message="ok", code=0, status=200):
+    """返回统一成功响应。"""
     return jsonify({"code": code, "message": message, "data": data}), status
 
 
 def err(message="error", code=1, status=400, data=None):
+    """返回统一错误响应。"""
     return jsonify({"code": code, "message": message, "data": data}), status
 
 
 def now():
+    """返回当前 UTC 时间。"""
     return datetime.utcnow()
 
 
 def role_of(user: User):
+    """读取用户角色并统一为小写。"""
     return (user.role or "").strip().lower()
 
 
 def as_int(v):
+    """安全地把输入转成整数。"""
     try:
         return int(v)
     except Exception:
@@ -44,6 +49,7 @@ def as_int(v):
 
 
 def current_user():
+    """按 JWT 身份读取当前有效用户。"""
     uid = as_int(get_jwt_identity())
     if not uid:
         return None
@@ -54,18 +60,22 @@ def current_user():
 
 
 def is_teacher(u: User):
+    """判断用户是否为教师。"""
     return role_of(u) == "teacher"
 
 
 def is_student(u: User):
+    """判断用户是否为学生。"""
     return role_of(u) == "student"
 
 
 def course_by_id(course_id: int):
+    """按主键查询课程。"""
     return Course.query.get(course_id)
 
 
 def enrollment_status(course_id: int, student_id: int):
+    """查询学生在某课程下的最新选课状态。"""
     rec = (
         Enrollment.query.filter_by(course_id=course_id, student_id=student_id)
         .order_by(Enrollment.id.desc())
@@ -75,6 +85,7 @@ def enrollment_status(course_id: int, student_id: int):
 
 
 def is_enrolled(course_id: int, student_id: int):
+    """判断学生是否处于已选课状态。"""
     return (
         Enrollment.query.filter_by(
             course_id=course_id, student_id=student_id, status="enrolled"
@@ -84,6 +95,7 @@ def is_enrolled(course_id: int, student_id: int):
 
 
 def can_view_content(u, c: Course):
+    """判断当前用户是否可以查看课程内容。"""
     if c.status == "draft":
         if u is None or c.teacher_id != u.id:
             return False
@@ -91,7 +103,8 @@ def can_view_content(u, c: Course):
 
 
 def serialize_course(c: Course, u: User | None = None):
-    # Calculate average rating and review count
+    """序列化课程信息。"""
+    # 统计课程平均评分与评价数量。
     reviews = Review.query.filter_by(course_id=c.id).all()
     avg_rating = sum([r.rating for r in reviews]) / len(reviews) if reviews else 0.0
 
@@ -120,6 +133,7 @@ def serialize_course(c: Course, u: User | None = None):
 
 
 def serialize_content(x: Content):
+    """序列化课件内容信息。"""
     return {
         "id": x.id,
         "course_id": x.course_id,
@@ -133,6 +147,7 @@ def serialize_content(x: Content):
 
 
 def serialize_message(x: Message):
+    """序列化课程留言信息。"""
     sender = User.query.get(x.sender_id)
     sender_name = sender.username if sender else "未知用户"
     if sender and getattr(sender, 'real_name', None):
@@ -151,6 +166,7 @@ def serialize_message(x: Message):
 
 
 def upload_dir() -> Path:
+    """返回课件上传目录，并在缺失时自动创建。"""
     p = current_app.config.get("UPLOAD_DIR") or os.path.join(current_app.root_path, "uploads")
     p = Path(p).resolve()
     p.mkdir(parents=True, exist_ok=True)
@@ -158,19 +174,20 @@ def upload_dir() -> Path:
 
 
 def allowed_ext(filename: str):
+    """判断上传文件扩展名是否允许。"""
     if "." not in filename:
         return False
     ext = filename.rsplit(".", 1)[-1].lower()
     allowed = {
-        # 视频 (Video) - 通常浏览器支持 mp4, webm, ogg预览
+        # 视频：浏览器通常可直接预览。
         "mp4", "webm", "ogg", "mov", "avi",
-        # 音频 (Audio) - 通常浏览器支持 mp3, ogg, wav预览
+        # 音频：浏览器通常可直接预览。
         "mp3", "wav", "flac", "aac", "m4a",
-        # 图片 (Image) - 浏览器原生支持预览
+        # 图片：浏览器原生支持预览。
         "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico",
-        # 文档 (Document) - pdf可原生存预览，其余通常需下载或Office Web Viewer
+        # 文档：PDF 可直接预览，其余通常下载后查看。
         "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "csv", "md",
-        # 压缩包等 (Archive)
+        # 压缩包：仅允许上传和下载。
         "zip", "rar", "7z", "tar", "gz"
     }
     return ext in allowed
@@ -847,6 +864,7 @@ def create_course_message(course_id):
 # ---------- reviews ----------
 
 def serialize_review(x: Review, cur_user=None):
+    """序列化课程评价及点赞状态。"""
     user = User.query.get(x.user_id)
     liked = False
     if cur_user:

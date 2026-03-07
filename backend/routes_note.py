@@ -9,18 +9,22 @@ from sensitive_filter import reject_sensitive_fields
 note_bp = Blueprint("notes", __name__, url_prefix="/api/notes")
 
 def ok(data=None, message="ok", code=0, status=200):
+    """返回统一成功响应。"""
     return jsonify({"code": code, "message": message, "data": data}), status
 
 def err(message="error", code=1, status=400, data=None):
+    """返回统一错误响应。"""
     return jsonify({"code": code, "message": message, "data": data}), status
 
 def as_int(v):
+    """安全地把输入转成整数。"""
     try:
         return int(v)
     except Exception:
         return None
 
 def current_user():
+    """按 JWT 身份读取当前有效用户。"""
     uid = as_int(get_jwt_identity())
     if not uid:
         return None
@@ -30,9 +34,11 @@ def current_user():
     return user
 
 def now():
+    """返回当前 UTC 时间。"""
     return datetime.utcnow()
 
 def serialize_note(x: Note):
+    """序列化笔记数据。"""
     return {
         "id": x.id,
         "title": x.title,

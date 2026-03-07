@@ -10,6 +10,7 @@ ai_bp = Blueprint("ai", __name__, url_prefix="/api/ai")
 
 
 def as_int(v):
+    """安全地把输入转成整数。"""
     try:
         return int(v)
     except Exception:
@@ -17,6 +18,7 @@ def as_int(v):
 
 
 def current_user():
+    """按 JWT 身份读取当前有效用户。"""
     uid = as_int(get_jwt_identity())
     if not uid:
         return None
@@ -30,6 +32,7 @@ def current_user():
 @ai_bp.post("/chat")
 @jwt_required()
 def ai_chat():
+    """转发 AI 对话请求，并以 SSE 流式返回回复。"""
     user = current_user()
     body = request.get_json(silent=True) or {}
     user_message = body.get("message", "").strip()
@@ -48,9 +51,6 @@ def ai_chat():
     sensitive_err = reject_sensitive_fields({"AI消息内容": user_message}, err, scene="content")
     if sensitive_err:
         return sensitive_err
-
-    if not user:
-        return err("请先登录", status=401)
 
     api_key = os.getenv("SILICON_API_KEY")
 
@@ -73,6 +73,7 @@ def ai_chat():
     ]
 
     def generate_stream():
+        """持续产出模型返回的流式分片。"""
         try:
             # 开启流式请求
             response = client.chat.completions.create(

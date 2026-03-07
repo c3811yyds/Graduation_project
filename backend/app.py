@@ -16,6 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def load_app_version():
+    """读取当前部署版本号。"""
     # 部署版本默认读项目根目录 VERSION；Docker 中可通过 APP_VERSION_FILE 指定镜像内路径
     version_path = Path(os.getenv("APP_VERSION_FILE", str(BASE_DIR / "VERSION")))
     try:
@@ -25,6 +26,7 @@ def load_app_version():
         return "dev"
 
 def create_app():
+    """创建并初始化 Flask 应用。"""
     app = Flask(__name__)
 
     # 基础配置
@@ -74,6 +76,7 @@ def create_app():
 
     @app.get("/api/health")
     def health():
+        """返回后端健康状态和版本号。"""
         return jsonify({
             "code": 0,
             "message": "ok",
@@ -82,6 +85,7 @@ def create_app():
 
     @app.get("/api/version")
     def version():
+        """返回当前部署版本号。"""
         return jsonify({
             "code": 0,
             "message": "ok",

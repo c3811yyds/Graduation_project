@@ -12,27 +12,33 @@ const version = ref('')
 const authVisible = ref(false)
 const authMode = ref('login')
 
+// 返回课程大厅首页。
 function goHome() {
   router.push('/')
 }
 
+// 进入个人中心页。
 function goProfile() {
   router.push('/profile')
 }
 
+// 打开数据总览页。
 function goDashboard() {
   router.push('/dashboard')
 }
 
+// 进入管理员后台。
 function goAdmin() {
   router.push('/admin')
 }
 
+// 打开登录弹窗并默认切到登录模式。
 function openLogin() {
   authMode.value = 'login'
   authVisible.value = true
 }
 
+// 读取当前部署版本号，显示在顶部导航。
 async function loadVersion() {
   try {
     const res = await http.get('/version')
@@ -42,6 +48,7 @@ async function loadVersion() {
   }
 }
 
+// 根据本地 token 拉取当前登录用户信息。
 async function loadMe() {
   const token = sessionStorage.getItem('token')
   if (!token) {
@@ -58,6 +65,7 @@ async function loadMe() {
   }
 }
 
+// 登录或注册成功后刷新用户态，并通知其他悬浮组件同步状态。
 async function onAuthSuccess() {
   await loadMe()
   window.dispatchEvent(new Event('user-auth-changed'))
@@ -66,6 +74,7 @@ async function onAuthSuccess() {
   })
 }
 
+// 退出登录并清理本地登录态。
 function logout() {
   sessionStorage.removeItem('token')
   me.value = null
@@ -73,6 +82,7 @@ function logout() {
   router.push('/')
 }
 
+// 页面首次加载时同步版本号和登录用户信息。
 onMounted(() => {
   loadVersion()
   loadMe().then(() => {

@@ -1,6 +1,6 @@
 <template>
   <div class="memo-sidebar" :class="{ 'memo-open': isOpen }">
-    <!-- Toggle Button -->
+    <!-- 侧边栏切换按钮 -->
     <div class="toggle-btn" @click="toggleSidebar" title="备忘薄">
       备忘薄
     </div>
@@ -11,16 +11,16 @@
         <button class="btn btn-sm btn-primary" @click="createNote">新建</button>
       </div>
 
-      <!-- Not logged in state -->
+      <!-- 未登录时仅显示提示 -->
       <div v-if="!isLoggedIn" class="memo-empty">
         <p>登录后即可使用云端同步备忘录功能</p>
       </div>
 
       <div v-else class="memo-body">
-        <!-- Error or Loading -->
+        <!-- 错误提示 -->
         <div v-if="error" class="error-msg">{{ error }}</div>
 
-        <!-- Note List Selector -->
+        <!-- 笔记切换区 -->
         <div class="note-selector" v-if="notes.length > 0">
           <label>选择文档：</label>
           <div class="flex-row">
@@ -33,12 +33,12 @@
           </div>
         </div>
         
-        <!-- Empty list state -->
+        <!-- 空列表提示 -->
         <div v-if="notes.length === 0" class="memo-empty">
           <p>暂无笔记档案，点击上方新建</p>
         </div>
 
-        <!-- Active Note Editor -->
+        <!-- 当前选中笔记的编辑区 -->
         <div class="note-editor" v-if="activeNote">
           <input 
             type="text" 
@@ -92,6 +92,7 @@ const activeNote = computed(() => {
   return notes.value.find(n => n.id === activeNoteId.value)
 })
 
+// 切换右侧笔记抽屉，首次展开时拉取笔记列表。
 function toggleSidebar() {
   isOpen.value = !isOpen.value
   if (isOpen.value && isLoggedIn.value && notes.value.length === 0) {
@@ -99,6 +100,7 @@ function toggleSidebar() {
   }
 }
 
+// 获取当前登录用户的全部笔记列表。
 async function loadNotes() {
   if (!isLoggedIn.value) return
   error.value = ''
@@ -121,6 +123,7 @@ async function loadNotes() {
   }
 }
 
+// 将当前选中笔记内容同步到输入框。
 function syncEditState() {
   if (activeNote.value) {
     editTitle.value = activeNote.value.title
@@ -129,10 +132,12 @@ function syncEditState() {
   }
 }
 
+// 切换下拉选择的笔记后刷新编辑区内容。
 function switchNote() {
   syncEditState()
 }
 
+// 新建一篇空白笔记并切换到编辑状态。
 async function createNote() {
   if (!isLoggedIn.value) return
   try {
@@ -140,7 +145,7 @@ async function createNote() {
     // [后端映射]: POST /api/notes -> 创建新笔记
     const res = await http.post('/notes', { title })
     const newNote = res.data.data
-    notes.value.unshift(newNote) // Add to top
+    notes.value.unshift(newNote)
     activeNoteId.value = newNote.id
     syncEditState()
   } catch (e) {
@@ -149,6 +154,8 @@ async function createNote() {
 }
 
 let saveTimeout = null
+
+// 保存当前笔记标题和正文，并在本地同步最新更新时间。
 async function saveNote() {
   if (!activeNote.value || !isLoggedIn.value) return
   
@@ -190,6 +197,7 @@ async function saveNote() {
   }
 }
 
+// 删除当前选中的笔记，并自动切到剩余第一篇。
 async function deleteNote() {
   if (!activeNote.value || !confirm('确定要永久删除这篇笔记吗？')) return
   
@@ -209,12 +217,14 @@ async function deleteNote() {
   }
 }
 
+// 格式化笔记更新时间，显示为简短月日时分。
 function formatTime(iso) {
     if(!iso) return ''
     const d = new Date(iso)
     return `${d.getMonth()+1}-${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`
 }
 
+// 登录态变化后同步笔记侧栏，退出时清空本地缓存状态。
 const handleAuthChanged = () => {
   forceUpdate.value++
   if (isLoggedIn.value) {

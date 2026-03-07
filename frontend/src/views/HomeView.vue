@@ -103,6 +103,7 @@ const showInviteModal = ref(false);
 const generatedCode = ref("");
 const isGenerating = ref(false);
 
+// [功能说明]: 教师生成专属邀请码，成功后在弹窗里展示结果。
 async function generateInvite() {
   if (isGenerating.value) return;
   isGenerating.value = true;
@@ -147,12 +148,14 @@ const handleAuthChanged = async () => {
   await loadCourses();
 };
 
+// [功能说明]: 首页挂载时初始化用户身份和课程大厅数据，并监听登录态变更。
 onMounted(async () => {
   await loadMe();
   await loadCourses();
   window.addEventListener('user-auth-changed', handleAuthChanged);
 });
 
+// [功能说明]: 页面卸载时移除登录态监听，避免重复绑定。
 onUnmounted(() => {
   window.removeEventListener('user-auth-changed', handleAuthChanged);
 });

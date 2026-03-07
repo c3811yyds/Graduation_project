@@ -180,18 +180,22 @@ const coursePageOptions = computed(() => {
   return result
 })
 
+// [功能说明]: 点击右上角按钮返回首页。
 function goHome() {
   router.push('/')
 }
 
+// [功能说明]: 切到上一组课程，配合教师/管理员的大屏分页浏览。
 function prevCoursePage() {
   if (coursePage.value > 1) coursePage.value -= 1
 }
 
+// [功能说明]: 切到下一组课程，继续浏览后续课程数据。
 function nextCoursePage() {
   if (coursePage.value < totalCoursePages.value) coursePage.value += 1
 }
 
+// [功能说明]: 页面初始化时按角色拉取学生、教师或管理员对应的大屏统计数据。
 onMounted(async () => {
   try {
     const meRes = await http.get('/users/me')
@@ -207,6 +211,7 @@ onMounted(async () => {
   }
 })
 
+// [功能说明]: 生成左侧柱状图配置；学生显示学习进度，教师/管理员显示选修人数。
 const barChartOption = computed(() => {
   if (isStudent.value) {
     return {
@@ -255,6 +260,7 @@ const barChartOption = computed(() => {
   }
 })
 
+// [功能说明]: 生成右侧饼图配置；学生显示完成数量，教师/管理员显示课程评分。
 const pieChartOption = computed(() => {
   if (isStudent.value) {
     const pieData = visibleCourseLabels.value.map((name, index) => ({

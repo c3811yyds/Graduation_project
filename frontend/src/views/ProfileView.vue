@@ -107,6 +107,7 @@ const confirmPassword = ref('');
 const pwdCooldown = ref(0);
 let pwdTimer = null;
 
+// [功能说明]: 页面进入时拉取当前登录用户资料，用于初始化表单和改密区域。
 onMounted(async () => {
   try {
     // [后端映射]: GET /api/users/me -> 读取个人资料
@@ -122,6 +123,7 @@ onMounted(async () => {
   }
 });
 
+// [功能说明]: 提交用户名/性别/爱好修改，并在成功后刷新页面状态。
 async function saveProfile() {
   if (!form.value.username.trim()) {
     alert("用户名不能为空");
@@ -138,6 +140,7 @@ async function saveProfile() {
   }
 }
 
+// [功能说明]: 向当前用户邮箱发送改密验证码，并启动 60 秒倒计时。
 async function sendPasswordCode() {
   try {
     // [后端映射]: POST /api/users/me/password-code -> 发送修改密码验证码
@@ -156,6 +159,7 @@ async function sendPasswordCode() {
   }
 }
 
+// [功能说明]: 校验验证码和两次新密码输入后，提交当前账号的密码修改请求。
 async function changePassword() {
   if (!pwdCode.value.trim()) {
     alert('请输入邮箱验证码');
@@ -184,6 +188,7 @@ async function changePassword() {
   }
 }
 
+// [功能说明]: 页面离开时清理验证码倒计时，避免定时器残留。
 onUnmounted(() => {
   if (pwdTimer) {
     clearInterval(pwdTimer);

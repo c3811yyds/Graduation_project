@@ -25,7 +25,7 @@ const availableModels = [
   { id: 'Qwen/Qwen3-8B', name: 'Qwen 3 (8B新版)' }
 ]
 
-// 自动滚动到底部
+// 自动滚动到底部，确保流式回复时始终能看到最新内容。
 const scrollToBottom = () => {
   nextTick(() => {
     if (chatBodyRef.value) {
@@ -34,13 +34,14 @@ const scrollToBottom = () => {
   })
 }
 
-// 监听打开时滚动底部
+// 抽屉打开后自动滚到底部，避免历史消息挡住最新内容。
 watch(isOpen, (val) => {
   if (val) {
     scrollToBottom()
   }
 })
 
+// 登录状态变化时同步 AI 助教面板，退出后重置会话内容。
 const handleAuthChanged = () => {
   forceUpdate.value++
   if (!isLoggedIn.value) {
@@ -51,15 +52,16 @@ const handleAuthChanged = () => {
   }
 }
 
+// 发送用户消息并按流式响应逐步更新 AI 回复内容。
 async function sendMessage() {
   const text = inputStr.value.trim()
   if (!text || isLoading.value) return
 
-  // 用户发言加入消息列表
+  // 用户发言先写入本地消息列表。
   messages.value.push({ role: 'user', text })
   inputStr.value = ''
   
-  // AI占位符加入消息列表，准备显示打字机效果
+  // 先插入 AI 占位消息，后续逐步回填流式内容。
   const replyIndex = messages.value.push({ role: 'ai', text: '', loading: true }) - 1
   isLoading.value = true
   scrollToBottom()
@@ -67,7 +69,7 @@ async function sendMessage() {
   try {
     const token = sessionStorage.getItem('token')
     
-    // 使用相对路径以支持Nginx反向代理和Server-Sent Events
+    // 使用相对路径以支持 Nginx 反向代理和 Server-Sent Events。
     // [后端映射]: POST /api/ai/chat -> 发起 AI 聊天并接收流式回复
     const res = await fetch('/api/ai/chat', {
       method: 'POST',
@@ -118,7 +120,7 @@ async function sendMessage() {
               if(dataObj.error) {
                  messages.value[replyIndex].text += `\n[系统错误：${dataObj.error}]`
               } else if (dataObj.content) {
-                 // 打字机效果将字符推入
+                 // 流式返回时逐段拼接回复文本。
                  messages.value[replyIndex].text += dataObj.content
                  scrollToBottom()
               }

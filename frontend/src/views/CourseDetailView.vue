@@ -72,7 +72,7 @@
       </div>
     </header>
 
-    <!-- 剧场播放模式 (Theather Mode) -->
+    <!-- 剧场播放模式 -->
     <section v-if="currentPlayingContent" class="panel theater-mode-panel" style="margin-top: 24px; padding: 24px; background: #1e293b; color: #fff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h2 style="margin: 0; display: flex; align-items: center; gap: 8px;">
@@ -386,14 +386,17 @@ const hasReviewed = computed(() => {
   return reviews.value.some(r => r.user_id === me.value.id);
 });
 
+// 返回课程大厅首页。
 function goHome() {
   router.push("/");
 }
 
+// 读取当前登录 token，供课件预览和下载拼接查询参数。
 function token() {
   return sessionStorage.getItem("token") || "";
 }
 
+// 统一格式化课程详情页里的时间显示。
 function formatTime(v) {
   if (!v) return "-";
   try {
@@ -403,6 +406,7 @@ function formatTime(v) {
   }
 }
 
+// 拉取当前登录用户信息，用于角色判断和按钮显隐。
 async function loadMe() {
   const t = token();
   if (!t) {
@@ -420,12 +424,14 @@ async function loadMe() {
 }
 
 // [后端映射]: GET /api/courses/<id> -> 获取单课程详情
+// 获取课程基本信息与课件列表等主数据。
 async function loadCourseDetail() {
   const res = await http.get(`/courses/${courseId}`);
   course.value = res.data.data || null;
 }
 
 // [后端映射]: 组合请求获取特定课程资源 (GET /api/courses/<id>/contents) 和 弹幕区评论等消息互动数据
+// 获取进度、留言、评价和学生列表等学习相关数据。
 async function loadLearningData() {
   if (!course.value) return;
   if (!me.value) {
@@ -464,6 +470,7 @@ async function loadLearningData() {
   }
 }
 
+// 课程详情页初始化或执行关键操作后统一刷新页面数据。
 async function refreshPage() {
   try {
     await loadMe();
@@ -474,6 +481,7 @@ async function refreshPage() {
   }
 }
 
+// 打开课程信息编辑弹窗，并回填当前标题与简介。
 function openCourseEditModal() {
   if (!course.value || !isTeacherOwner.value) return;
   editCourseTitle.value = course.value.title || "";
@@ -482,6 +490,7 @@ function openCourseEditModal() {
 }
 
 // [后端映射]: PATCH /api/courses/<id> -> 教师修改课程标题与简介
+// 提交课程标题和简介修改，只发送实际变更的字段。
 async function submitCourseEdit() {
   if (!course.value || !isTeacherOwner.value) return;
   const title = editCourseTitle.value.trim();
@@ -586,7 +595,7 @@ async function submitReview() {
     showReviewModal.value = false;
     newReviewComment.value = "";
     newReviewRating.value = 5;
-    // reload data to see the new review
+    // 重新拉取数据，确保立即看到新评价和最新统计。
     await loadCourseDetail();
     await loadLearningData();
   } catch (e) {
@@ -653,6 +662,7 @@ async function sendMessage() {
   }
 }
 
+// 选择上传文件后暂存到本地状态，等待教师确认上传。
 function pickFile(e) {
   if (e.target.files && e.target.files.length > 0) {
     uploadFile.value = e.target.files[0];
@@ -689,6 +699,7 @@ async function uploadContent() {
     }
   }
 
+// 打开课件播放器；学生进入时顺便记录一次学习行为。
   async function openContent(contentId) {
     try {
       if (isStudent.value) {
@@ -709,6 +720,7 @@ async function uploadContent() {
     }
   }
 
+  // 关闭顶部剧场模式播放器并清空当前播放状态。
   function closePlayer() {
     currentPlayingContent.value = null;
     currentPlayingUrl.value = "";
@@ -743,6 +755,7 @@ async function deleteContent(contentId) {
     }
   }
 
+  // 教师修改课件标题后刷新内容列表。
   async function renameContent(contentId, oldTitle) {
     const newTitle = prompt("修改课件名称", oldTitle);
     if (!newTitle || newTitle.trim() === "" || newTitle === oldTitle) return;
@@ -755,7 +768,8 @@ async function deleteContent(contentId) {
     }
   }
 
-onMounted(refreshPage);
+  // 页面进入课程详情时加载完整课程数据。
+  onMounted(refreshPage);
 </script>
 
 <style scoped>

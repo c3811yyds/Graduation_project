@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="admin-page">
     <section class="hero admin-hero">
       <div>
@@ -48,9 +48,7 @@
             <h2>账号管理</h2>
             <p class="muted">支持关键词、角色、状态筛选，以及分页查看。</p>
           </div>
-          <div class="summary-text">
-            共 {{ pagination.total || 0 }} 条
-          </div>
+          <div class="summary-text">共 {{ pagination.total || 0 }} 条</div>
         </div>
 
         <div class="filter-bar">
@@ -126,9 +124,7 @@
         </div>
 
         <div class="pagination-bar">
-          <div class="page-info">
-            第 {{ pagination.page || 1 }} / {{ pagination.total_pages || 1 }} 页
-          </div>
+          <div class="page-info">第 {{ pagination.page || 1 }} / {{ pagination.total_pages || 1 }} 页</div>
           <div class="page-actions">
             <button class="btn" :disabled="pagination.page <= 1" @click="changePage(pagination.page - 1)">
               上一页
@@ -182,10 +178,12 @@ const filters = ref({
   pageSize: 10,
 })
 
+// 管理员可以从后台直接回到首页继续浏览站点。
 function goHome() {
   router.push('/')
 }
 
+// 统一格式化后台表格中的时间字段。
 function formatTime(value) {
   if (!value) return '-'
   const date = new Date(value)
@@ -193,6 +191,7 @@ function formatTime(value) {
   return date.toLocaleString()
 }
 
+// 根据当前页码生成最多 5 个分页按钮。
 const pageButtons = computed(() => {
   const totalPages = pagination.value.total_pages || 1
   const current = pagination.value.page || 1
@@ -206,11 +205,13 @@ const pageButtons = computed(() => {
   return result
 })
 
+// 读取管理员顶部统计卡片所需的概览数据。
 async function loadOverview() {
   const res = await http.get('/admin/overview')
   overview.value = res.data.data || {}
 }
 
+// 按当前筛选条件加载账号分页列表。
 async function loadUsers(page = 1) {
   const params = {
     page,
@@ -231,6 +232,7 @@ async function loadUsers(page = 1) {
   }
 }
 
+// 页面初始化或点击刷新时并行拉取概览和列表数据。
 async function loadAll() {
   loading.value = true
   error.value = ''
@@ -243,6 +245,7 @@ async function loadAll() {
   }
 }
 
+// 应用筛选条件后回到第一页重新查询。
 async function applyFilters() {
   loading.value = true
   error.value = ''
@@ -255,6 +258,7 @@ async function applyFilters() {
   }
 }
 
+// 恢复默认筛选条件并立即刷新列表。
 async function resetFilters() {
   filters.value = {
     keyword: '',
@@ -265,6 +269,7 @@ async function resetFilters() {
   await applyFilters()
 }
 
+// 切换分页时保持当前筛选条件不变。
 async function changePage(page) {
   if (page < 1 || page > (pagination.value.total_pages || 1)) return
   loading.value = true
@@ -278,6 +283,7 @@ async function changePage(page) {
   }
 }
 
+// 封禁或解封指定用户账号，并同步刷新概览与当前页列表。
 async function toggleUserStatus(user) {
   const nextStatus = user.status === 'active' ? 'disabled' : 'active'
   const actionText = nextStatus === 'disabled' ? '封禁' : '解封'
@@ -294,6 +300,7 @@ async function toggleUserStatus(user) {
   }
 }
 
+// 页面进入管理员后台时自动加载概览和账号列表。
 onMounted(loadAll)
 </script>
 

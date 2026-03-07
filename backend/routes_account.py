@@ -25,22 +25,27 @@ user_bp = Blueprint("users", __name__, url_prefix="/api/users")
 # ---------- helpers ----------
 
 def ok(data=None, message="ok", code=0, status=200):
+    """返回统一成功响应。"""
     return jsonify({"code": code, "message": message, "data": data}), status
 
 
 def err(message="error", code=1, status=400, data=None):
+    """返回统一错误响应。"""
     return jsonify({"code": code, "message": message, "data": data}), status
 
 
 def now():
+    """返回当前 UTC 时间。"""
     return datetime.utcnow()
 
 
 def role_of(user: User):
+    """读取用户角色并统一为小写。"""
     return (user.role or "").strip().lower()
 
 
 def as_int(v):
+    """安全地把输入转成整数。"""
     try:
         return int(v)
     except Exception:
@@ -48,6 +53,7 @@ def as_int(v):
 
 
 def current_user():
+    """按 JWT 身份读取当前有效用户。"""
     uid = as_int(get_jwt_identity())
     if not uid:
         return None
@@ -58,18 +64,22 @@ def current_user():
 
 
 def is_teacher(u: User):
+    """判断用户是否为教师。"""
     return role_of(u) == "teacher"
 
 
 def is_student(u: User):
+    """判断用户是否为学生。"""
     return role_of(u) == "student"
 
 
 def is_admin(u: User):
+    """判断用户是否为管理员。"""
     return role_of(u) == "admin"
 
 
 def course_by_id(course_id: int):
+    """按主键查询课程。"""
     return Course.query.get(course_id)
 
 
@@ -80,7 +90,7 @@ PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS = 60
 
 
 def send_email_code(email: str, code: str, scene_name: str = "账号注册", valid_minutes: int = 5):
-    # This expects env variables to send real emails, else prints to console
+    """发送邮箱验证码；未配置邮件服务时退化为控制台打印。"""
     mail_server = os.getenv("MAIL_SERVER")
     mail_port = as_int(os.getenv("MAIL_PORT")) or 465
     mail_user = os.getenv("MAIL_USERNAME")
@@ -117,6 +127,7 @@ def send_email_code(email: str, code: str, scene_name: str = "账号注册", val
 
 
 def upsert_verify_code(email: str, expire_minutes: int):
+    """为邮箱生成并覆盖保存最新验证码。"""
     # 统一验证码写入：覆盖旧验证码，确保一个邮箱同一时间只保留一条记录
     code = str(random.randint(100000, 999999))
     expires = now() + timedelta(minutes=expire_minutes)
@@ -127,6 +138,7 @@ def upsert_verify_code(email: str, expire_minutes: int):
 
 
 def password_code_cooldown_left_seconds(vc: VerifyCode | None):
+    """计算密码验证码发送冷却剩余秒数。"""
     # 密码验证码固定 2 分钟有效，因此可用“剩余有效秒数 - 60”得到冷却剩余秒数
     if not vc:
         return 0

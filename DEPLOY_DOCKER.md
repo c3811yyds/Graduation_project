@@ -124,6 +124,8 @@ docker compose down
 
 docker compose down -v
 
+说明：该命令不仅会删除 MySQL 数据卷 `db_data`，也会一起删除课件上传数据卷 `backend_storage`，相当于同时清空数据库和已上传课件文件，仅适合彻底重置环境时使用。
+
 5. 查看前端日志
 
 docker compose logs -f frontend

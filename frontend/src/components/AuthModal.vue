@@ -50,6 +50,7 @@ watch(
   }
 )
 
+// 根据当前模式发送注册验证码或找回密码验证码。
 async function sendCode() {
   if (!email.value || !email.value.includes('@')) {
     error.value = '请输入有效的邮箱地址'
@@ -70,11 +71,13 @@ async function sendCode() {
   }
 }
 
+// 关闭弹窗并清理倒计时。
 function close() {
   emit('update:modelValue', false)
   if (timer) clearInterval(timer)
 }
 
+// 提交登录、注册或忘记密码表单。
 async function submit() {
   error.value = ''
   loading.value = true
@@ -120,6 +123,7 @@ async function submit() {
   }
 }
 
+// 组件卸载时清理验证码倒计时，避免定时器泄漏。
 onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
