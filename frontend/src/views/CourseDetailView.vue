@@ -112,17 +112,10 @@
           class="document-preview-frame"
         ></iframe>
 
-        <!-- 常见 Office 文档通过在线查看器预览 -->
-        <iframe
-          v-else-if="currentPreviewKind === 'office' && officePreviewUrl"
-          :src="officePreviewUrl"
-          class="document-preview-frame"
-        ></iframe>
-
-        <!-- 本地环境下 Office 在线预览通常无法访问 localhost -->
+        <!-- Office 文档暂时统一走下载查看，避免线上预览器不稳定 -->
         <div v-else-if="currentPreviewKind === 'office'" class="preview-fallback">
           <div class="preview-fallback-icon">DOC</div>
-          <p>当前环境下无法直接在线预览该 Office 文档，请下载后查看，或在部署后的站点中预览。</p>
+          <p>当前版本暂不直接在线预览 Office 文档，请下载后使用本地应用查看。</p>
           <button class="btn btn-primary preview-download-btn" @click="downloadContent(currentPlayingContent.id)">立即下载</button>
         </div>
 
@@ -444,17 +437,6 @@ const currentPreviewKind = computed(() => {
     return "office";
   }
   return "unsupported";
-});
-
-const officePreviewUrl = computed(() => {
-  if (currentPreviewKind.value !== "office" || !currentPlayingUrl.value) return "";
-  if (typeof window === "undefined") return "";
-
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1") return "";
-
-  const absoluteFileUrl = new URL(currentPlayingUrl.value, window.location.origin).href;
-  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteFileUrl)}`;
 });
 
 // 返回课程大厅首页。
