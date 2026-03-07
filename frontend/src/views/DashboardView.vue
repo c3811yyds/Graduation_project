@@ -141,7 +141,7 @@ const coursePageSizeOptions = [4, 6, 8, 10, 12];
 const isStudent = computed(() => data.value?.role === "student");
 const isAdmin = computed(() => data.value?.role === "admin");
 const isCustomCompareMode = computed(() => customCourseIds.value.length > 0);
-const showCourseControls = computed(() => !isStudent.value && allCourseNames.value.length > 0);
+const showCourseControls = computed(() => allCourseNames.value.length > 1);
 
 const subtitleText = computed(() => {
   if (isAdmin.value) return "全课程选修评分信息";
@@ -169,23 +169,18 @@ const courseRecords = computed(() =>
 );
 
 const totalCoursePages = computed(() => {
-  if (isStudent.value) return 1;
   return Math.max(1, Math.ceil(allCourseNames.value.length / coursePageSize.value));
 });
 
 const courseSliceStart = computed(() => {
-  if (isStudent.value) return 0;
   return (coursePage.value - 1) * coursePageSize.value;
 });
 
 const courseSliceEnd = computed(() => {
-  if (isStudent.value) return allCourseNames.value.length;
   return courseSliceStart.value + coursePageSize.value;
 });
 
 const visibleRecords = computed(() => {
-  if (isStudent.value) return courseRecords.value;
-
   if (isCustomCompareMode.value) {
     return customCourseIds.value
       .map((id) => courseRecords.value.find((record) => Number(record.id) === id))
