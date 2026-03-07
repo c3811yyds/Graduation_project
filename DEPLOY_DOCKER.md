@@ -161,6 +161,21 @@ docker compose restart backend frontend
 2. 这组命令会把运行中的 `backend_storage` 数据卷覆盖成仓库里的 `backend/storage`。
 3. 如果你只同步数据库、不同步 `storage`，课件记录和文件会不匹配；反过来只同步 `storage` 也一样。
 
+如果只需要把服务器网站上的最新 SQL 数据回拉到本地，不回拉 `storage`，可以按下面执行：
+
+服务器导出：
+docker compose exec -T db mysqldump -u root -proot --default-character-set=utf8mb4 --no-tablespaces graduation_project > /root/db-backups/server_dump_$(date +%F_%H%M).sql
+
+本地下载：
+scp root@服务器IP:/root/db-backups/server_dump_时间.sql ./db-backups/
+
+本地导入：
+mysql -u root -p graduation_project < ./db-backups/server_dump_时间.sql
+
+说明：
+1. 这组命令只适合账号、选课、留言、评价、笔记、邀请码这类纯数据库数据回拉。
+2. 如果服务器还改了课件文件，仍然需要把 `backend/storage` 一起同步回本地。
+
 九、数据持久化说明
 1. MySQL 数据保存在 db_data 卷中。
 2. 上传文件保存在 backend_storage 卷中。

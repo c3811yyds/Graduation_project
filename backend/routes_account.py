@@ -84,6 +84,7 @@ def course_by_id(course_id: int):
     return Course.query.get(course_id)
 
 
+# 把教师邀请码模型转换成前端可直接消费的字段结构。
 def serialize_invite_code(invite: TeacherInviteCode):
     """序列化教师端邀请码列表项。"""
     return {
@@ -94,6 +95,7 @@ def serialize_invite_code(invite: TeacherInviteCode):
     }
 
 
+# 生成一个数据库中未被占用的教师邀请码。
 def build_teacher_invite_code():
     """生成不重复的教师邀请码字符串。"""
     code = f"TCH-{uuid.uuid4().hex[:8].upper()}"
@@ -301,6 +303,8 @@ def list_my_invite_codes():
     return ok({"items": [serialize_invite_code(code) for code in invite_codes]})
 
 
+# [前端对应]: 登录注册弹窗 (AuthModal.vue) -> 输入账号密码后点击“登录”
+# [业务逻辑]: 支持用户名或邮箱登录，校验密码与账号状态后签发 JWT
 @auth_bp.post("/login")
 def login():
     body = request.get_json(silent=True) or {}

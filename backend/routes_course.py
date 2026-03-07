@@ -937,7 +937,7 @@ def create_course_review(course_id):
     if not is_student(u) or not is_enrolled(course_id, u.id):
         return err("只有选修了该课程的学生才能评价", status=403)
         
-    # Check if existing review
+    # 一人一课只允许保留一条评价记录，先检查是否已经提交过。
     existing = Review.query.filter_by(course_id=course_id, user_id=u.id).first()
     if existing:
         return err("你已经评价过该课程，不能重复评价", status=400)

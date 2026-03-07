@@ -144,6 +144,7 @@ const inviteLoading = ref(false);
 const inviteError = ref("");
 const isGenerating = ref(false);
 
+// [功能说明]: 把邀请码过期时间统一格式化，供教师邀请码弹窗列表展示。
 function formatInviteTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -151,6 +152,7 @@ function formatInviteTime(value) {
   return date.toLocaleString();
 }
 
+// [功能说明]: 教师打开邀请码弹窗后，读取自己当前未使用且未过期的邀请码列表。
 async function loadTeacherInviteCodes() {
   inviteLoading.value = true;
   inviteError.value = "";
@@ -164,11 +166,13 @@ async function loadTeacherInviteCodes() {
   }
 }
 
+// [功能说明]: 打开教师邀请码弹窗，并立即刷新当前可用邀请码。
 async function openInviteModal() {
   showInviteModal.value = true;
   await loadTeacherInviteCodes();
 }
 
+// [功能说明]: 教师在弹窗内继续生成新的邀请码，生成后刷新列表保留当前可见邀请码。
 async function generateInvite() {
   if (isGenerating.value) return;
   isGenerating.value = true;
@@ -183,6 +187,7 @@ async function generateInvite() {
   }
 }
 
+// [功能说明]: 一键复制邀请码，方便教师直接发给待注册教师使用。
 async function copyInviteCode(code) {
   try {
     await navigator.clipboard.writeText(code);
@@ -232,6 +237,7 @@ function applyGuestSearch() {
   guestSearchKeyword.value = guestSearchInput.value.trim();
 }
 
+// [功能说明]: 登录态发生变化后，同步刷新当前用户信息和首页课程列表。
 const handleAuthChanged = async () => {
   await loadMe();
   await loadCourses();

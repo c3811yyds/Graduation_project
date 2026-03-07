@@ -194,6 +194,8 @@ def bootstrap_admin_account():
     db.session.commit()
 
 
+# [前端对应]: 管理员后台首页 (AdminView.vue) -> 顶部统计卡片
+# [业务逻辑]: 汇总账号、课程、课件、评价、留言、邀请码等基础统计数据
 @admin_bp.get("/overview")
 @jwt_required()
 def admin_overview():
@@ -224,6 +226,8 @@ def admin_overview():
     )
 
 
+# [前端对应]: 数据总览页 (DashboardView.vue) -> 管理员视角的全课程统计图表
+# [业务逻辑]: 汇总已发布课程的选课人数和综合评分，供管理员查看全站课程走势
 @admin_bp.get("/analytics")
 @jwt_required()
 def admin_analytics():
@@ -263,6 +267,8 @@ def admin_analytics():
     )
 
 
+# [前端对应]: 管理员后台 (AdminView.vue) -> “账号管理” 标签页列表
+# [业务逻辑]: 支持按关键词、角色、状态分页筛选账号
 @admin_bp.get("/users")
 @jwt_required()
 def admin_list_users():
@@ -326,6 +332,8 @@ def admin_list_users():
     )
 
 
+# [前端对应]: 管理员后台 (AdminView.vue) -> 账号列表中的“启用/停用”按钮
+# [业务逻辑]: 切换账号状态，并阻止管理员停用自己或停用最后一个启用中的管理员
 @admin_bp.patch("/users/<int:user_id>/status")
 @jwt_required()
 def admin_update_user_status(user_id):
@@ -357,6 +365,8 @@ def admin_update_user_status(user_id):
     return ok(serialize_user(target), "账号状态已更新")
 
 
+# [前端对应]: 当前前端未单独开放页面，保留给管理员后续全站评价治理使用
+# [业务逻辑]: 返回全站评价列表，按创建时间倒序
 @admin_bp.get("/reviews")
 @jwt_required()
 def admin_list_reviews():
@@ -369,6 +379,8 @@ def admin_list_reviews():
     return ok({"items": [serialize_review(review) for review in reviews]})
 
 
+# [前端对应]: 当前前端未单独开放页面，保留给管理员后续全站评价治理使用
+# [业务逻辑]: 删除指定评价，并级联清理点赞记录
 @admin_bp.delete("/reviews/<int:review_id>")
 @jwt_required()
 def admin_delete_review(review_id):
@@ -387,6 +399,8 @@ def admin_delete_review(review_id):
     return ok({"id": review_id}, "评价已删除")
 
 
+# [前端对应]: 当前前端未单独开放页面，保留给管理员后续全站留言治理使用
+# [业务逻辑]: 返回全站留言列表，按创建时间倒序
 @admin_bp.get("/messages")
 @jwt_required()
 def admin_list_messages():
@@ -399,6 +413,8 @@ def admin_list_messages():
     return ok({"items": [serialize_message(message) for message in messages]})
 
 
+# [前端对应]: 当前前端未单独开放页面，保留给管理员后续全站留言治理使用
+# [业务逻辑]: 删除指定留言
 @admin_bp.delete("/messages/<int:message_id>")
 @jwt_required()
 def admin_delete_message(message_id):
@@ -416,6 +432,8 @@ def admin_delete_message(message_id):
     return ok({"id": message_id}, "留言已删除")
 
 
+# [前端对应]: 管理员后台 (AdminView.vue) -> “教师邀请码” 标签页列表
+# [业务逻辑]: 按状态、邀请码、创建人、使用人关键词分页筛选教师邀请码
 @admin_bp.get("/invite-codes")
 @jwt_required()
 def admin_list_invite_codes():
@@ -487,6 +505,8 @@ def admin_list_invite_codes():
     )
 
 
+# [前端对应]: 管理员后台 (AdminView.vue) -> “生成邀请码” 按钮
+# [业务逻辑]: 按管理员指定的有效天数生成一个新的教师邀请码
 @admin_bp.post("/invite-codes")
 @jwt_required()
 def admin_create_invite_code():
