@@ -14,11 +14,14 @@
     <div v-else-if="error" class="center-msg error-text">{{ error }}</div>
 
     <template v-else>
-      <section v-if="showCoursePager" class="course-pager panel-lite">
+      <section v-if="showCourseControls" class="course-pager panel-lite">
         <div class="pager-row">
           <div class="pager-info">
-            <strong>当前课程组</strong>
-            <p class="muted pager-desc">
+            <strong>{{ isCustomCompareMode ? "自定义对比课程" : "当前课程组" }}</strong>
+            <p class="muted pager-desc" v-if="isCustomCompareMode">
+              当前按课程 ID 自定义对比：{{ visibleCourseIdsText }}
+            </p>
+            <p class="muted pager-desc" v-else>
               当前第 {{ coursePage }} / {{ totalCoursePages }} 组
               (课程 ID {{ visibleCourseStartId }} - {{ visibleCourseEndId }})
             </p>
@@ -26,25 +29,66 @@
           </div>
 
           <div class="pager-actions">
-            <button class="btn" :disabled="coursePage <= 1" @click="prevCoursePage">上一组</button>
-            <button class="btn" :disabled="coursePage >= totalCoursePages" @click="nextCoursePage">下一组</button>
-            <select v-model.number="coursePage" class="page-select">
+            <label class="control-group">
+              <span>每组显示</span>
+              <select v-model.number="coursePageSize" class="page-select page-size-select">
+                <option v-for="size in coursePageSizeOptions" :key="size" :value="size">
+                  {{ size }} 门
+                </option>
+              </select>
+            </label>
+
+            <label class="control-group course-id-group">
+              <span>对比课程 ID</span>
+              <input
+                v-model="customCourseIdsInput"
+                class="course-id-input"
+                type="text"
+                placeholder="例如 3,8,11"
+                @keydown.enter.prevent="applyCustomCompare"
+              />
+            </label>
+
+            <button class="btn btn-primary" @click="applyCustomCompare">应用对比</button>
+            <button class="btn" :disabled="!isCustomCompareMode" @click="clearCustomCompare">恢复分页</button>
+            <button
+              v-if="!isCustomCompareMode"
+              class="btn"
+              :disabled="coursePage <= 1"
+              @click="prevCoursePage"
+            >
+              上一组
+            </button>
+            <button
+              v-if="!isCustomCompareMode"
+              class="btn"
+              :disabled="coursePage >= totalCoursePages"
+              @click="nextCoursePage"
+            >
+              下一组
+            </button>
+            <select
+              v-if="!isCustomCompareMode"
+              v-model.number="coursePage"
+              class="page-select"
+            >
               <option v-for="item in coursePageOptions" :key="item.page" :value="item.page">
                 {{ item.label }}
               </option>
             </select>
           </div>
         </div>
+        <p v-if="customCompareHint" class="muted pager-desc">{{ customCompareHint }}</p>
       </section>
 
       <div class="charts-grid">
         <div class="chart-card">
-          <h3>{{ isStudent ? '各课程学习进度' : '课程选修人数分布' }}</h3>
+          <h3>{{ isStudent ? "各课程学习进度" : "课程选修人数分布" }}</h3>
           <v-chart class="chart" :option="barChartOption" autoresize />
         </div>
 
         <div class="chart-card">
-          <h3>{{ isStudent ? '各课程已学数量分布' : '课程综合评分对比' }}</h3>
+          <h3>{{ isStudent ? "各课程已学数量分布" : "课程综合评分对比" }}</h3>
           <v-chart class="chart chart-pie" :option="pieChartOption" autoresize />
         </div>
       </div>
@@ -53,7 +97,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import http from "../api/http";
 
@@ -78,17 +122,26 @@ use([
   GridComponent,
 ]);
 
-const COURSE_PAGE_SIZE = 8;
+const DEFAULT_COURSE_PAGE_SIZE = 8;
+const MAX_CUSTOM_COMPARE_COUNT = 8;
 
 const loading = ref(true);
 const error = ref("");
 const data = ref({});
 const coursePage = ref(1);
+const coursePageSize = ref(DEFAULT_COURSE_PAGE_SIZE);
+const customCourseIdsInput = ref("");
+const customCourseIds = ref([]);
+const customCompareHint = ref("");
 
 const router = useRouter();
 
+const coursePageSizeOptions = [4, 6, 8, 10, 12];
+
 const isStudent = computed(() => data.value?.role === "student");
 const isAdmin = computed(() => data.value?.role === "admin");
+const isCustomCompareMode = computed(() => customCourseIds.value.length > 0);
+const showCourseControls = computed(() => !isStudent.value && allCourseNames.value.length > 0);
 
 const subtitleText = computed(() => {
   if (isAdmin.value) return "全课程选修评分信息";
@@ -103,52 +156,51 @@ const allReviewAverages = computed(() => data.value?.reviewAverages || []);
 const allProgressRates = computed(() => data.value?.progressRates || []);
 const allCompletedCounts = computed(() => data.value?.completedCounts || []);
 
+const courseRecords = computed(() =>
+  allCourseNames.value.map((name, index) => ({
+    id: allCourseIds.value[index],
+    label: allCourseIds.value[index] ? `${name} (${allCourseIds.value[index]})` : name,
+    name,
+    enrollCount: allEnrollCounts.value[index] || 0,
+    reviewAverage: allReviewAverages.value[index] || 0,
+    progressRate: allProgressRates.value[index] || 0,
+    completedCount: allCompletedCounts.value[index] || 0,
+  })),
+);
+
 const totalCoursePages = computed(() => {
   if (isStudent.value) return 1;
-  return Math.max(1, Math.ceil(allCourseNames.value.length / COURSE_PAGE_SIZE));
+  return Math.max(1, Math.ceil(allCourseNames.value.length / coursePageSize.value));
 });
-
-const showCoursePager = computed(() => !isStudent.value && allCourseNames.value.length > COURSE_PAGE_SIZE);
 
 const courseSliceStart = computed(() => {
   if (isStudent.value) return 0;
-  return (coursePage.value - 1) * COURSE_PAGE_SIZE;
+  return (coursePage.value - 1) * coursePageSize.value;
 });
 
 const courseSliceEnd = computed(() => {
   if (isStudent.value) return allCourseNames.value.length;
-  return courseSliceStart.value + COURSE_PAGE_SIZE;
+  return courseSliceStart.value + coursePageSize.value;
 });
 
-const visibleCourseNames = computed(() => {
-  if (isStudent.value) return allCourseNames.value;
-  return allCourseNames.value.slice(courseSliceStart.value, courseSliceEnd.value);
+const visibleRecords = computed(() => {
+  if (isStudent.value) return courseRecords.value;
+
+  if (isCustomCompareMode.value) {
+    return customCourseIds.value
+      .map((id) => courseRecords.value.find((record) => Number(record.id) === id))
+      .filter(Boolean);
+  }
+
+  return courseRecords.value.slice(courseSliceStart.value, courseSliceEnd.value);
 });
 
-const visibleCourseIds = computed(() => {
-  if (isStudent.value) return allCourseIds.value;
-  return allCourseIds.value.slice(courseSliceStart.value, courseSliceEnd.value);
-});
-
-const visibleCourseLabels = computed(() =>
-  visibleCourseNames.value.map((name, index) => {
-    const courseId = visibleCourseIds.value[index];
-    return courseId ? `${name} (${courseId})` : name;
-  }),
-);
-
-const visibleEnrollCounts = computed(() => {
-  if (isStudent.value) return allEnrollCounts.value;
-  return allEnrollCounts.value.slice(courseSliceStart.value, courseSliceEnd.value);
-});
-
-const visibleReviewAverages = computed(() => {
-  if (isStudent.value) return allReviewAverages.value;
-  return allReviewAverages.value.slice(courseSliceStart.value, courseSliceEnd.value);
-});
-
-const visibleProgressRates = computed(() => allProgressRates.value);
-const visibleCompletedCounts = computed(() => allCompletedCounts.value);
+const visibleCourseLabels = computed(() => visibleRecords.value.map((record) => record.label));
+const visibleCourseIds = computed(() => visibleRecords.value.map((record) => record.id));
+const visibleEnrollCounts = computed(() => visibleRecords.value.map((record) => record.enrollCount));
+const visibleReviewAverages = computed(() => visibleRecords.value.map((record) => record.reviewAverage));
+const visibleProgressRates = computed(() => visibleRecords.value.map((record) => record.progressRate));
+const visibleCompletedCounts = computed(() => visibleRecords.value.map((record) => record.completedCount));
 
 const visibleCourseStartId = computed(() => {
   if (!visibleCourseIds.value.length) return "-";
@@ -165,11 +217,16 @@ const visibleCourseNamesText = computed(() => {
   return visibleCourseLabels.value.join("、");
 });
 
+const visibleCourseIdsText = computed(() => {
+  if (!visibleCourseIds.value.length) return "未匹配到课程";
+  return visibleCourseIds.value.join(", ");
+});
+
 const coursePageOptions = computed(() => {
   const result = [];
   for (let page = 1; page <= totalCoursePages.value; page += 1) {
-    const start = (page - 1) * COURSE_PAGE_SIZE;
-    const end = start + COURSE_PAGE_SIZE;
+    const start = (page - 1) * coursePageSize.value;
+    const end = start + coursePageSize.value;
     const ids = allCourseIds.value.slice(start, end);
     const startId = ids[0] ?? "-";
     const endId = ids[ids.length - 1] ?? "-";
@@ -179,6 +236,10 @@ const coursePageOptions = computed(() => {
     });
   }
   return result;
+});
+
+watch(coursePageSize, () => {
+  coursePage.value = 1;
 });
 
 // 返回首页。
@@ -194,6 +255,54 @@ function prevCoursePage() {
 // 切到下一组课程。
 function nextCoursePage() {
   if (coursePage.value < totalCoursePages.value) coursePage.value += 1;
+}
+
+// 应用课程 ID 自定义对比，只保留当前存在的课程。
+function applyCustomCompare() {
+  const ids = Array.from(
+    new Set(
+      customCourseIdsInput.value
+        .split(/[，,\s]+/)
+        .map((item) => Number(item.trim()))
+        .filter((item) => Number.isInteger(item) && item > 0),
+    ),
+  );
+
+  if (!ids.length) {
+    customCourseIds.value = [];
+    customCompareHint.value = "";
+    return;
+  }
+
+  const existingIdSet = new Set(allCourseIds.value.map((id) => Number(id)));
+  const validIds = ids.filter((id) => existingIdSet.has(id));
+  const invalidIds = ids.filter((id) => !existingIdSet.has(id));
+  const limitedValidIds = validIds.slice(0, MAX_CUSTOM_COMPARE_COUNT);
+
+  customCourseIds.value = limitedValidIds;
+  coursePage.value = 1;
+
+  if (!limitedValidIds.length) {
+    customCompareHint.value = "未匹配到可对比的课程 ID，请检查输入。";
+    return;
+  }
+
+  const hints = [];
+  if (validIds.length > MAX_CUSTOM_COMPARE_COUNT) {
+    hints.push(`最多只保留前 ${MAX_CUSTOM_COMPARE_COUNT} 门课程进行对比`);
+  }
+  if (invalidIds.length) {
+    hints.push(`已忽略不存在的课程 ID：${invalidIds.join(", ")}`);
+  }
+  customCompareHint.value = hints.join("；");
+}
+
+// 清空自定义对比，恢复分页模式。
+function clearCustomCompare() {
+  customCourseIdsInput.value = "";
+  customCourseIds.value = [];
+  customCompareHint.value = "";
+  coursePage.value = 1;
 }
 
 // 页面进入后按角色加载学生/教师/管理员对应的数据总览。
@@ -261,7 +370,7 @@ const barChartOption = computed(() => {
   };
 });
 
-// 学生端第二张图展示各课程已学课件数量分布，避免误导成学习进度。
+// 学生端第二张图展示各课程已学课件数量分布；教师/管理员展示课程评分。
 const pieChartOption = computed(() => {
   if (isStudent.value) {
     const pieData = visibleCourseLabels.value.map((name, index) => ({
@@ -310,9 +419,15 @@ const pieChartOption = computed(() => {
       bottom: 0,
       left: "center",
       itemGap: 12,
+      formatter(name) {
+        const matched = pieData.find((item) => item.name === name);
+        if (!matched) return name;
+        return `${name} ${matched.value}分`;
+      },
       textStyle: {
-        width: 130,
-        overflow: "truncate",
+        width: 180,
+        overflow: "break",
+        lineHeight: 16,
       },
     },
     series: [
@@ -325,6 +440,19 @@ const pieChartOption = computed(() => {
           borderRadius: 10,
           borderColor: "#fff",
           borderWidth: 2,
+        },
+        label: {
+          show: true,
+          formatter(params) {
+            return `${params.name}\n${params.value}分`;
+          },
+          fontWeight: 700,
+          lineHeight: 18,
+        },
+        labelLine: {
+          show: true,
+          length: 12,
+          length2: 10,
         },
         data: pieData,
       },
@@ -377,36 +505,57 @@ const pieChartOption = computed(() => {
 
 .pager-row {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: 16px;
 }
 
 .pager-info {
-  flex: 1;
+  width: 100%;
   min-width: 0;
 }
 
 .pager-desc {
   margin: 6px 0 0;
   line-height: 1.6;
+  word-break: break-word;
 }
 
 .pager-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+  width: 100%;
 }
 
-.page-select {
-  min-width: 240px;
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.course-id-group {
+  min-width: 220px;
+}
+
+.page-select,
+.course-id-input {
+  min-width: 180px;
   border: 1px solid #d0d7de;
   background: #fff;
   border-radius: 8px;
   padding: 8px 12px;
   font-weight: 600;
   color: var(--text);
+  font-family: inherit;
+}
+
+.page-size-select {
+  min-width: 110px;
 }
 
 .charts-grid {
@@ -438,7 +587,7 @@ const pieChartOption = computed(() => {
 }
 
 .chart-pie {
-  height: 450px;
+  height: 480px;
 }
 
 .btn {
@@ -453,6 +602,16 @@ const pieChartOption = computed(() => {
 
 .btn:hover {
   background: #f6f8fa;
+}
+
+.btn-primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
 }
 
 @media (max-width: 768px) {
@@ -471,8 +630,13 @@ const pieChartOption = computed(() => {
   }
 
   .pager-actions .btn,
-  .page-select {
+  .page-select,
+  .course-id-input {
     width: 100%;
+  }
+
+  .course-id-group {
+    min-width: 100%;
   }
 
   .charts-grid {
