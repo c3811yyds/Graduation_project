@@ -6,6 +6,12 @@ import http from "../api/http";
 const router = useRouter();
 const me = ref(null);
 const courses = ref([]);
+const guestSearchInput = ref("");
+const guestSearchKeyword = ref("");
+const studentAvailableSearchInput = ref("");
+const studentAvailableSearchKeyword = ref("");
+const teacherOtherSearchInput = ref("");
+const teacherOtherSearchKeyword = ref("");
 
 const enrolledCourses = computed(() =>
   courses.value.filter((c) => c.is_enrolled || c.enrollment_status === "enrolled")
@@ -23,6 +29,39 @@ const teacherMyPublishedCourses = computed(() =>
 );
 const teacherOtherPublishedCourses = computed(() =>
   courses.value.filter(c => c.status === "published" && c.teacher_id !== me.value?.id)
+);
+
+// [功能说明]: 课程搜索统一匹配课程标题、授课教师和课程简介三个字段。
+function courseMatchesKeyword(course, keyword) {
+  const normalizedKeyword = (keyword || "").trim().toLowerCase();
+  if (!normalizedKeyword) return true;
+
+  const haystack = [
+    course.title,
+    course.teacher_name,
+    course.description,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(normalizedKeyword);
+}
+
+const filteredAvailableCourses = computed(() =>
+  availableCourses.value.filter((c) =>
+    courseMatchesKeyword(c, studentAvailableSearchKeyword.value)
+  )
+);
+
+const filteredTeacherOtherPublishedCourses = computed(() =>
+  teacherOtherPublishedCourses.value.filter((c) =>
+    courseMatchesKeyword(c, teacherOtherSearchKeyword.value)
+  )
+);
+
+const filteredGuestCourses = computed(() =>
+  courses.value.filter((c) => courseMatchesKeyword(c, guestSearchKeyword.value))
 );
 
 // [功能说明]: 页面初始化时检查是否有 Token 并加载当前用户信息，判断是学生还是教师。
@@ -143,6 +182,21 @@ async function createCourse() {
   }
 }
 
+// [功能说明]: 学生在“可选课程”区域点击搜索后，仅筛选该分区课程卡片。
+function applyStudentAvailableSearch() {
+  studentAvailableSearchKeyword.value = studentAvailableSearchInput.value.trim();
+}
+
+// [功能说明]: 教师在“其他教师发布的课程”区域点击搜索后，仅筛选该分区课程卡片。
+function applyTeacherOtherSearch() {
+  teacherOtherSearchKeyword.value = teacherOtherSearchInput.value.trim();
+}
+
+// [功能说明]: 游客或未登录用户在课程大厅搜索公开课程。
+function applyGuestSearch() {
+  guestSearchKeyword.value = guestSearchInput.value.trim();
+}
+
 const handleAuthChanged = async () => {
   await loadMe();
   await loadCourses();
@@ -202,9 +256,20 @@ onUnmounted(() => {
       </section>
 
       <section class="panel">
-        <h2>可选课程（{{ availableCourses.length }}）</h2>
+        <div class="panel-head">
+          <h2>可选课程（{{ filteredAvailableCourses.length }}）</h2>
+          <div class="search-bar">
+            <input
+              v-model.trim="studentAvailableSearchInput"
+              class="search-input"
+              placeholder="搜索课程名 / 教师名 / 课程简介"
+              @keyup.enter="applyStudentAvailableSearch"
+            />
+            <button class="btn" @click="applyStudentAvailableSearch">搜索</button>
+          </div>
+        </div>
         <div class="grid">
-          <article class="card" v-for="c in availableCourses" :key="c.id">
+          <article class="card" v-for="c in filteredAvailableCourses" :key="c.id">
             <h3>{{ c.title }}</h3>
             <small style="display:block; margin-bottom:8px; color:#666">授课教师: {{ c.teacher_name }}</small>
             <p>{{ c.description || "暂无简介" }}</p>
@@ -215,7 +280,9 @@ onUnmounted(() => {
               </button>
             </div>
           </article>
-          <p class="muted" v-if="!availableCourses.length">暂无未选课程</p>
+          <p class="muted" v-if="!filteredAvailableCourses.length">
+            {{ studentAvailableSearchKeyword ? "没有匹配的可选课程" : "暂无未选课程" }}
+          </p>
         </div>
       </section>
     </template>
@@ -255,9 +322,20 @@ onUnmounted(() => {
       </section>
 
       <section class="panel">
-        <h2>其他教师发布的课程</h2>
+        <div class="panel-head">
+          <h2>其他教师发布的课程（{{ filteredTeacherOtherPublishedCourses.length }}）</h2>
+          <div class="search-bar">
+            <input
+              v-model.trim="teacherOtherSearchInput"
+              class="search-input"
+              placeholder="搜索课程名 / 教师名 / 课程简介"
+              @keyup.enter="applyTeacherOtherSearch"
+            />
+            <button class="btn" @click="applyTeacherOtherSearch">搜索</button>
+          </div>
+        </div>
         <div class="grid">
-          <article class="card" v-for="c in teacherOtherPublishedCourses" :key="c.id">
+          <article class="card" v-for="c in filteredTeacherOtherPublishedCourses" :key="c.id">
             <h3>{{ c.title }}</h3>
             <small style="display:block; margin-bottom:8px; color:#666">授课教师: {{ c.teacher_name }}</small>
             <p>{{ c.description || "暂无简介" }}</p>
@@ -265,15 +343,28 @@ onUnmounted(() => {
               <button class="btn" @click="openDetail(c.id)">查看详情</button>
             </div>
           </article>
-          <p class="muted" v-if="!teacherOtherPublishedCourses.length">暂无其他教师课程</p>
+          <p class="muted" v-if="!filteredTeacherOtherPublishedCourses.length">
+            {{ teacherOtherSearchKeyword ? "没有匹配的课程" : "暂无其他教师课程" }}
+          </p>
         </div>
       </section>
     </template>
 
     <section v-else class="panel">
-      <h2>课程列表</h2>
+      <div class="panel-head">
+        <h2>课程列表（{{ filteredGuestCourses.length }}）</h2>
+        <div class="search-bar">
+          <input
+            v-model.trim="guestSearchInput"
+            class="search-input"
+            placeholder="搜索课程名 / 教师名 / 课程简介"
+            @keyup.enter="applyGuestSearch"
+          />
+          <button class="btn" @click="applyGuestSearch">搜索</button>
+        </div>
+      </div>
       <div class="grid">
-        <article class="card" v-for="c in courses" :key="c.id">
+        <article class="card" v-for="c in filteredGuestCourses" :key="c.id">
           <h3>{{ c.title }}</h3>
           <small style="display:block; margin-bottom:8px; color:#666">授课教师: {{ c.teacher_name }}</small>
           <p>{{ c.description || "暂无简介" }}</p>
@@ -281,6 +372,9 @@ onUnmounted(() => {
             <button class="btn" @click="openDetail(c.id)">查看详情</button>
           </div>
         </article>
+        <p class="muted" v-if="!filteredGuestCourses.length">
+          {{ guestSearchKeyword ? "没有匹配的课程" : "暂无课程" }}
+        </p>
       </div>
     </section>
 
@@ -339,10 +433,33 @@ onUnmounted(() => {
   margin-bottom: 24px;
   box-shadow: var(--shadow);
 }
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.panel-head h2 {
+  margin: 0;
+}
 .grid {
   display: grid;
   gap: 20px;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.search-input {
+  min-width: 260px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: inherit;
 }
 .card {
   border: 1px solid var(--line);
@@ -411,5 +528,19 @@ onUnmounted(() => {
   border-radius: 8px;
   padding: 8px;
   font-family: inherit;
+}
+
+@media (max-width: 768px) {
+  .panel-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search-bar {
+    width: 100%;
+  }
+  .search-input {
+    min-width: 0;
+    flex: 1;
+  }
 }
 </style>
