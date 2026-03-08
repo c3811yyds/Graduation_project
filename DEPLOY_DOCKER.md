@@ -280,3 +280,53 @@ mysql -u root -p graduation_project < ./db-backups/server_dump_时间.sql
 2. 上传文件保存在 `backend_storage` 卷中。
 3. Redis AOF 数据保存在 `redis_data` 卷中。
 4. 容器重建后，只要不删卷，这三类数据默认不会丢失。
+## 端口收口说明（v1.9.7）
+
+当前 Docker Compose 已调整为：
+
+- `frontend` 继续对外暴露 `80:80`
+- `backend` 改为仅绑定宿主机本地：`127.0.0.1:5000:5000`
+- `db` 改为仅绑定宿主机本地：`127.0.0.1:3306:3306`
+
+这样做的目的：
+
+- 外部请求只能通过 Nginx 进入前端，再由前端反代到后端
+- 外网不能再直接访问后端 `5000`
+- MySQL 不再直接暴露到外网，但仍可在服务器本机直接连接
+
+服务器更新命令：
+
+```bash
+cd ~/Graduation_project
+git pull origin main
+cat VERSION
+docker compose up -d backend db
+docker compose ps
+docker compose logs --tail=80 backend
+```
+
+收口后验证后端健康检查：
+
+```bash
+curl http://127.0.0.1:5000/api/health
+```
+
+收口后在服务器本机进入 MySQL：
+
+```bash
+cd ~/Graduation_project
+mysql -u root -p -h 127.0.0.1 -P 3306
+```
+
+如果要直接进入业务库：
+
+```bash
+cd ~/Graduation_project
+mysql -u admin -p -h 127.0.0.1 -P 3306 graduation_project
+```
+
+注意：
+
+- 这次只是端口收口，不涉及数据库快照导入，也不涉及 `backend/storage` 同步
+- 如果云服务器安全组或防火墙之前手动放开过 `5000`、`3306`，建议同步关闭
+- 如需回滚，只要把 `docker-compose.yml` 中对应端口映射改回原状，再执行 `docker compose up -d backend db`

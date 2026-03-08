@@ -16,7 +16,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     env_file:
       - ./backend/.env
     depends_on:
@@ -39,7 +39,7 @@ services:
       MYSQL_USER: admin
       MYSQL_PASSWORD: admin
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       # MySQL 数据目录持久化到数据卷
       - db_data:/var/lib/mysql
