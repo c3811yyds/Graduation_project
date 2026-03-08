@@ -6,7 +6,8 @@ import os
 import uuid
 
 from flask import Blueprint, current_app, jsonify, request, send_file
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import decode_token, get_jwt_identity, jwt_required
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.utils import secure_filename
 
 from cache_utils import cache_delete, cache_delete_pattern, cache_get_json, cache_set_json
@@ -18,6 +19,9 @@ course_bp = Blueprint("courses", __name__, url_prefix="/api/courses")
 content_bp = Blueprint("contents", __name__, url_prefix="/api/contents")
 
 # 课程与内容相关接口模块（由原 routes_auth.py 拆分）
+
+CONTENT_ACCESS_TICKET_EXPIRE_SECONDS = 60
+CONTENT_ACCESS_TICKET_SALT = "content-access-ticket"
 
 # ---------- helpers ----------
 
@@ -54,6 +58,68 @@ def current_user():
     uid = as_int(get_jwt_identity())
     if not uid:
         return None
+    user = User.query.get(uid)
+    if not user or user.status != "active":
+        return None
+    return user
+
+
+def serializer_for_content_access_ticket():
+    """创建课件短时访问票据签名器。"""
+    secret_key = current_app.config.get("JWT_SECRET_KEY") or current_app.config.get("SECRET_KEY")
+    return URLSafeTimedSerializer(secret_key=secret_key, salt=CONTENT_ACCESS_TICKET_SALT)
+
+
+def build_content_access_ticket(content_id: int, user_id: int):
+    """生成仅用于单个课件预览的短期访问票据。"""
+    payload = {"content_id": content_id, "user_id": user_id}
+    return serializer_for_content_access_ticket().dumps(payload)
+
+
+def user_from_authorization_header():
+    """从 Authorization 头中解析登录用户，供下载或接口调用复用。"""
+    auth = (request.headers.get("Authorization") or "").strip()
+    if not auth.lower().startswith("bearer "):
+        return None
+    token = auth[7:].strip()
+    if not token:
+        return None
+
+    try:
+        payload = decode_token(token)
+    except Exception:
+        return None
+
+    uid = as_int(payload.get("sub"))
+    if not uid:
+        return None
+
+    user = User.query.get(uid)
+    if not user or user.status != "active":
+        return None
+    return user
+
+
+def user_from_preview_ticket(ticket: str, expected_content_id: int):
+    """校验短时访问票据并还原出对应登录用户。"""
+    if not ticket:
+        return None
+
+    try:
+        payload = serializer_for_content_access_ticket().loads(
+            ticket,
+            max_age=CONTENT_ACCESS_TICKET_EXPIRE_SECONDS,
+        )
+    except (BadSignature, SignatureExpired):
+        return None
+
+    if as_int(payload.get("content_id")) != expected_content_id:
+        return None
+
+    uid = as_int(payload.get("user_id"))
+    if not uid:
+        return None
+
     user = User.query.get(uid)
     if not user or user.status != "active":
         return None
@@ -797,6 +863,35 @@ def delete_content(content_id):
     return ok({"id": content_id}, "删除成功")
 
 
+# [前端对应]: 课程详情页 (CourseDetailView.vue) -> 打开播放器前先申请短时预览票据
+# [业务逻辑]: 避免把完整 JWT 暴露到媒体、图片和 PDF 的 URL 查询串里
+@content_bp.post("/<int:content_id>/access-ticket")
+@jwt_required()
+def create_content_access_ticket(content_id):
+    u = current_user()
+    if not u:
+        return err("请先登录", status=401)
+
+    item = Content.query.get(content_id)
+    if not item:
+        return err("内容不存在", status=404)
+
+    c = course_by_id(item.course_id)
+    if not c:
+        return err("课程不存在", status=404)
+
+    if not can_view_content(u, c):
+        return err("无权限预览该内容", status=403)
+
+    ticket = build_content_access_ticket(content_id, u.id)
+    return ok(
+        {
+            "ticket": ticket,
+            "expires_seconds": CONTENT_ACCESS_TICKET_EXPIRE_SECONDS,
+        }
+    )
+
+
 # [前端对应]: 课程详情页面 (CourseDetailView.vue) -> 当触发视频播放器拉流或按下 "下载此份课件" 引发 GET 资源获取
 # [业务逻辑]: 实现经过凭据过滤（防盗链）后放行的核心私域文件串流，给前端消费流
 @content_bp.get("/<int:content_id>/file")
@@ -804,29 +899,14 @@ def access_content_file(content_id):
     """
     支持:
     - Authorization: Bearer <token>
-    - ?token=...
+    - ?ticket=...
     """
-    token = None
-    auth = (request.headers.get("Authorization") or "").strip()
-    if auth.lower().startswith("bearer "):
-        token = auth[7:].strip()
-    if not token:
-        token = (request.args.get("token") or "").strip()
-        
     is_download = request.args.get("download") == "1"
-    
-    u = None
-    if token:
-        try:
-            from flask_jwt_extended import decode_token
-            payload = decode_token(token)
-            uid = as_int(payload.get("sub"))
-            if uid:
-                u = User.query.get(uid)
-                if u and u.status != "active":
-                    u = None
-        except Exception:
-            pass
+
+    u = user_from_authorization_header()
+    if u is None and not is_download:
+        ticket = (request.args.get("ticket") or "").strip()
+        u = user_from_preview_ticket(ticket, content_id)
 
     if is_download and not u:
         return err("下载需登录", status=401)

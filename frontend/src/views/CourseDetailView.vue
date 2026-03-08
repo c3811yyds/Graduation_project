@@ -578,9 +578,24 @@ function goHome() {
   router.push("/");
 }
 
-// 读取当前登录 token，供课件预览和下载拼接查询参数。
+// 读取当前登录 token，供登录态判断和下载鉴权复用。
 function token() {
   return sessionStorage.getItem("token") || "";
+}
+
+// 打开媒体预览前，优先换取短时票据，避免把完整 JWT 暴露到 URL 中。
+async function buildPreviewUrl(contentId) {
+  const t = token();
+  if (!t) {
+    return `/api/contents/${contentId}/file`;
+  }
+
+  const res = await http.post(`/contents/${contentId}/access-ticket`);
+  const ticket = res.data.data?.ticket || "";
+  if (!ticket) {
+    throw new Error("预览票据获取失败");
+  }
+  return `/api/contents/${contentId}/file?ticket=${encodeURIComponent(ticket)}`;
 }
 
 // 从响应头里解析后端下发的下载文件名。
@@ -931,25 +946,28 @@ async function uploadContent() {
   }
 
 // 打开课件播放器；学生进入时顺便记录一次学习行为。
-  async function openContent(contentId) {
-    try {
-      if (isStudent.value) {
-        // [后端映射]: POST /api/contents/<id>/view -> 学生查看资源后记录进度
-        await http.post(`/contents/${contentId}/view`);
-        await loadLearningData();
-      }
-    } catch {}
-    const t = token();
-    const target = contents.value.find(c => c.id === contentId);
-    if(target) {
-        currentPlayingContent.value = target;
-        currentPlayingUrl.value = `/api/contents/${contentId}/file?token=${t}`;
-        // 平滑滚动回顶部以便观看
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-        window.open(`/api/contents/${contentId}/file?token=${t}`, "_blank");
+async function openContent(contentId) {
+  try {
+    if (isStudent.value) {
+      // [后端映射]: POST /api/contents/<id>/view -> 学生查看资源后记录进度
+      await http.post(`/contents/${contentId}/view`);
+      await loadLearningData();
     }
+
+    const previewUrl = await buildPreviewUrl(contentId);
+    const target = contents.value.find((c) => c.id === contentId);
+    if (target) {
+      currentPlayingContent.value = target;
+      currentPlayingUrl.value = previewUrl;
+      // 平滑滚动回顶部以便观看
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      window.open(previewUrl, "_blank");
+    }
+  } catch (e) {
+    alert(e?.response?.data?.message || e?.message || "预览失败");
   }
+}
 
   // 关闭顶部剧场模式播放器并清空当前播放状态。
   function closePlayer() {
