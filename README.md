@@ -10,9 +10,9 @@
 
 4. 用户端核心功能：
    - 个人资料管理：全新的个人中心界面，支持修改昵称（含敏感词过滤）、性别以及个人简介/爱好。
-   - 密码管理：支持“忘记密码（登录页）”与“已登录修改密码（个人中心）”两条链路，均基于邮箱验证码；当前验证码值与发送冷却时间优先走 Redis，数据库表保留兜底。
+   - 密码管理：支持“忘记密码（登录页）”与“已登录修改密码（个人中心）”两条链路，均基于邮箱验证码；当前验证码值与发送冷却时间优先走 Redis，数据库表保留兜底；开发环境仅在 `MAIL_CONSOLE_FALLBACK=true` 且实际走控制台兜底时打印验证码，正常发信链路不会在日志中输出明文验证码。
    - 课程列表与自主选课：课程大厅支持按课程名、教师名、课程简介关键词搜索，并可自主浏览、选课与退课。
-   - 剧场模式播放：在课程详情页中央内嵌展开视频/音频/图片/PDF 在线预览，其他常见文档类型提供下载查看入口，保护页面上下文。
+   - 剧场模式播放：在课程详情页中央内嵌展开视频/音频/图片/PDF 在线预览，其他常见文档类型提供下载查看入口，保护页面上下文；登录态预览受限课件时会先换取 60 秒短时访问票据，不再在 URL 查询参数中直接暴露 JWT。
    - 与教师留言交流：引入真实姓名显示机制。游客仅可浏览限制内容，必须登录才可查阅完整评论及进行点赞。
    - 在线随堂笔记：通过右侧边栏随时记录学习心得。
    - 查看总体进度：自动记录文档阅读/视频观看进度，在全局仪表盘生成学习情况统计。
@@ -112,7 +112,7 @@
      - SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
      - REDIS_URL=redis://127.0.0.1:6379/0 (本地 Redis 地址；线上接入 Redis 服务后改成对应容器地址)
      - MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD=填入你的发信邮箱配置(用于发送注册验证码)
-     - MAIL_CONSOLE_FALLBACK=false (开发环境可设为 true，邮件未配好时仅在后端控制台打印验证码)
+     - MAIL_CONSOLE_FALLBACK=false (开发环境可设为 true，且仅在邮件发送失败并实际走控制台兜底时打印验证码)
      - ADMIN_INIT_EMAIL=可选，首次启动时要提升/创建的管理员邮箱
      - ADMIN_INIT_USERNAME=可选，默认 admin，仅在自动创建管理员时使用
      - ADMIN_INIT_PASSWORD=可选，自动创建管理员时使用的初始密码
@@ -142,8 +142,8 @@
    - 引入邮箱验证码防刷机制（注册/找回/改密）
    - 忘记密码：登录页通过邮箱验证码重置密码
    - 已登录修改密码：个人中心通过邮箱验证码更新密码
-   - 密码验证码规则：2 分钟有效，60 秒发送冷却
-   - Redis 接入：课程列表、个人数据总览、管理员概览/总览已接入 Redis 缓存；注册/找回密码/个人中心改密验证码与冷却时间已迁 Redis，`verify_codes` 表保留兼容兜底；登录失败次数、验证码请求频率、AI 对话请求频率已接入 Redis 限流
+   - 密码验证码规则：2 分钟有效，60 秒发送冷却；注册、找回密码、个人中心改密三条链路后端统一生效
+   - Redis 接入：课程列表、个人数据总览、管理员概览/总览已接入 Redis 缓存；注册/找回密码/个人中心改密验证码与冷却时间已迁 Redis，`verify_codes` 表保留兼容兜底；登录失败次数、验证码请求频率、AI 对话请求频率已接入 Redis 限流，并在反向代理部署下按真实客户端 IP（`X-Forwarded-For` / `X-Real-IP`）分桶
    - 引入独立的系统分配教师邀请码机制
    - 基于 SessionStorage 的跨 Tab 页独立登录环境机制
 
@@ -294,7 +294,7 @@
   - 注：当前路由实现文件为 routes_account.py（认证/用户）、routes_course.py（课程/内容）与 routes_admin.py（管理员），routes_auth.py 为兼容导出入口。
 
 1. 【认证及用户】
-    - POST /api/auth/send-code : 发送邮箱验证码
+    - POST /api/auth/send-code : 发送邮箱验证码（2 分钟有效，60 秒发送冷却）
     - POST /api/auth/send-reset-code : 忘记密码发送验证码（已注册邮箱）
     - POST /api/auth/reset-password : 忘记密码提交验证码并重置新密码
     - POST /api/auth/register : 用户身份注册（需验证码，教师登录需系统邀请码）
@@ -333,8 +333,9 @@
     - PUT /api/contents/{id} : 重命名修改某个课件名称
     - DELETE /api/contents/{id} : 删除课件
     - POST /api/contents/{id}/view : 记录学习进度（学生观看打点）
-    - GET /api/contents/{id}/file : 访问/下载课件文件（支持 token 查询参数）
-    - 注：课程详情页当前通过标签切换展示“课程内容 / 学生进度 / 留言 / 评价”；PDF 支持在线预览，其他常见文档暂为下载查看；学生课件列表中的“已学习”状态由 `GET /api/courses/{id}/contents` 返回的 `is_learned` 字段驱动。
+    - POST /api/contents/{id}/access-ticket : 为登录态课件预览生成短时访问票据
+    - GET /api/contents/{id}/file : 访问/下载课件文件（支持 `Authorization` 头；预览时也支持短时 `ticket` 查询参数，不再支持 JWT `token` 查询参数）
+    - 注：课程详情页当前通过标签切换展示“课程内容 / 学生进度 / 留言 / 评价”；PDF 支持在线预览，其他常见文档暂为下载查看；登录态预览受限课件时会先调用 `POST /api/contents/{id}/access-ticket` 换取 60 秒短票据；学生课件列表中的“已学习”状态由 `GET /api/courses/{id}/contents` 返回的 `is_learned` 字段驱动。
 
 5. 【课程评价与交流模块】
     - GET /api/courses/{course_id}/reviews : 获取某门课的评论列表，按“点赞+时间”降序

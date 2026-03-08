@@ -74,8 +74,13 @@ ADMIN_INIT_PASSWORD=
 1. `DATABASE_URL` 要和 `docker-compose.yml` 中数据库账号保持一致。
 2. `REDIS_URL` 在线上必须指向 Compose 内的 Redis 服务，也就是 `redis://redis:6379/0`。
 3. `UPLOAD_DIR=./storage` 对应后端容器内目录，已通过数据卷持久化。
-4. `MAIL_CONSOLE_FALLBACK` 线上应保持 `false`，不要再使用控制台验证码兜底。
+4. `MAIL_CONSOLE_FALLBACK` 线上应保持 `false`，不要再使用控制台验证码兜底；正常邮件发送链路不会在日志里输出明文验证码，只有开发环境启用兜底且实际走兜底时才会打印验证码。
 5. `ADMIN_INIT_*` 仅在你需要首次自动创建/提升管理员账号时填写。
+
+补充说明：
+
+1. 当前登录失败限流、验证码请求限流、AI 请求限流在 Nginx 反向代理场景下会优先识别真实客户端 IP（`X-Forwarded-For` / `X-Real-IP`），不要再按容器内网 IP 判断是否命中限流。
+2. 课程详情页受限课件预览已改为短时访问票据链路，前端不会再把 JWT 直接拼进预览 URL；如需排查预览问题，优先检查 `POST /api/contents/{id}/access-ticket` 和 `/api/contents/{id}/file?ticket=...`。
 
 管理员初始化变量说明：
 
@@ -137,6 +142,11 @@ nano backend/.env
 REDIS_URL=redis://redis:6379/0
 MAIL_CONSOLE_FALLBACK=false
 ```
+
+补充说明：
+
+1. 线上保持 `MAIL_CONSOLE_FALLBACK=false` 时，验证码只会在邮件发送成功后写入 Redis / 数据库兜底，不会额外打印到后端日志。
+2. 如果前端出现课件预览失败，但下载正常，优先查看 backend 日志里 `POST /api/contents/{id}/access-ticket` 与 `/api/contents/{id}/file?ticket=...` 是否返回 401/403。
 
 然后执行：
 
