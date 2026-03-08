@@ -9,6 +9,7 @@ from flask import Blueprint, current_app, jsonify, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from werkzeug.utils import secure_filename
 
+from cache_utils import cache_delete, cache_delete_pattern, cache_get_json, cache_set_json
 from extensions import db
 from models import User, Course, Enrollment, Content, Progress, Message, Review, ReviewLike
 from sensitive_filter import reject_sensitive_fields
@@ -100,6 +101,25 @@ def can_view_content(u, c: Course):
         if u is None or c.teacher_id != u.id:
             return False
     return True
+
+
+def course_list_cache_key(u: User | None):
+    """按当前浏览身份构造课程列表缓存 key，避免不同用户看到的状态串值。"""
+    if u is None:
+        return "courses:list:guest"
+    return f"courses:list:{role_of(u) or 'unknown'}:{u.id}"
+
+
+def invalidate_course_list_cache():
+    """课程和选课写操作完成后，统一清理课程列表缓存。"""
+    cache_delete_pattern("courses:list:*")
+
+
+def invalidate_user_analytics_cache(student_id: int | None):
+    """按学生维度精准清理个人数据总览缓存，避免无关用户缓存被一起删除。"""
+    if not student_id:
+        return
+    cache_delete(f"analytics:user:{student_id}")
 
 
 def serialize_course(c: Course, u: User | None = None):
@@ -208,6 +228,10 @@ def list_courses():
     - 登录后学生可看到 is_enrolled / enrollment_status
     """
     u = current_user()
+    cache_key = course_list_cache_key(u)
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return ok(cached)
 
     query = Course.query
     if u and is_teacher(u):
@@ -216,7 +240,9 @@ def list_courses():
         query = query.filter_by(status="published")
 
     courses = query.order_by(Course.id.desc()).all()
-    return ok([serialize_course(c, u) for c in courses])
+    data = [serialize_course(c, u) for c in courses]
+    cache_set_json(cache_key, data, ttl_seconds=60)
+    return ok(data)
 
 
 # [前端对应]: 课程详情页 (CourseDetailView.vue) -> 进入页面按课程 id 拉取详情
@@ -273,6 +299,7 @@ def create_course():
     )
     db.session.add(c)
     db.session.commit()
+    invalidate_course_list_cache()
     return ok(serialize_course(c, u), "创建成功", status=201)
 
 
@@ -321,6 +348,7 @@ def update_course(course_id):
 
     c.updated_at = now()
     db.session.commit()
+    invalidate_course_list_cache()
     return ok(serialize_course(c, u), "更新成功")
 
 
@@ -343,6 +371,7 @@ def publish_course(course_id):
     c.status = "published"
     c.updated_at = now()
     db.session.commit()
+    invalidate_course_list_cache()
     return ok(serialize_course(c, u), "发布成功")
 
 
@@ -365,6 +394,7 @@ def unpublish_course(course_id):
     c.status = "draft"
     c.updated_at = now()
     db.session.commit()
+    invalidate_course_list_cache()
     return ok(serialize_course(c, u), "下架成功")
 
 
@@ -400,6 +430,7 @@ def delete_course(course_id):
 
     db.session.delete(c)
     db.session.commit()
+    invalidate_course_list_cache()
     return ok({"id": course_id}, "课程已永久删除")
 
 # ---------- enrollment ----------
@@ -438,6 +469,8 @@ def enroll(course_id):
         )
 
     db.session.commit()
+    invalidate_course_list_cache()
+    invalidate_user_analytics_cache(u.id)
     return ok({"course_id": course_id, "status": "enrolled"}, "选课成功")
 
 
@@ -453,6 +486,8 @@ def drop(course_id):
     if rec:
         db.session.delete(rec)
         db.session.commit()
+        invalidate_course_list_cache()
+        invalidate_user_analytics_cache(u.id)
     return ok(None, "退课成功")
 
 
@@ -962,6 +997,8 @@ def create_course_review(course_id):
     )
     db.session.add(r)
     db.session.commit()
+    invalidate_course_list_cache()
+    invalidate_user_analytics_cache(u.id)
 
     return ok(serialize_review(r), "评价成功", status=201)
 
@@ -984,6 +1021,8 @@ def delete_course_review(course_id, review_id):
 
     db.session.delete(r)
     db.session.commit()
+    invalidate_course_list_cache()
+    invalidate_user_analytics_cache(r.user_id)
     return ok({"id": review_id}, "评价已删除")
 
 # [前端对应]: 课程详情页 (CourseDetailView.vue) -> "官方追加回复" 互动动作提交

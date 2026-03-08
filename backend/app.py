@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, jsonify
 from flask_cors import CORS
-from extensions import db, jwt
+from extensions import db, init_redis, jwt
 from routes_account import auth_bp, user_bp
 from routes_admin import admin_bp, bootstrap_admin_account
 from routes_course import course_bp, content_bp
@@ -39,6 +39,8 @@ def create_app():
         "JWT_SECRET_KEY",
         "gp_dev_super_secret_key_2026_please_change_32bytes_plus",
     )
+    # Redis 先只接基础连接，后续再逐步接入缓存和限流逻辑。
+    app.config["REDIS_URL"] = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
     app.config["APP_VERSION"] = load_app_version()
     
     # 优先使用 .env 里的 UPLOAD_DIR 绝对路径，如果没有则默认存放在项目同级的 uploads 文件夹
@@ -58,6 +60,7 @@ def create_app():
     # 扩展初始化
     db.init_app(app)
     jwt.init_app(app)
+    init_redis(app)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     with app.app_context():

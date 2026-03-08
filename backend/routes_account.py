@@ -14,6 +14,7 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from cache_utils import cache_get_json, cache_set_json
 from extensions import db
 from models import User, Course, Enrollment, Content, Progress, Review, VerifyCode, TeacherInviteCode
 from sensitive_filter import reject_sensitive_fields
@@ -102,6 +103,11 @@ def build_teacher_invite_code():
     while TeacherInviteCode.query.filter_by(code=code).first():
         code = f"TCH-{uuid.uuid4().hex[:8].upper()}"
     return code
+
+def analytics_cache_key(user_id: int):
+    """按用户维度区分数据总览缓存，避免不同账号读到彼此的统计结果。"""
+    return f"analytics:user:{user_id}"
+
 
 
 # ---------- auth ----------
@@ -523,7 +529,12 @@ def user_analytics():
     u = current_user()
     if not u:
         return err("仅允许登录用户调用", status=401)
-        
+
+    cache_key = analytics_cache_key(u.id)
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return ok(cached)
+
     if is_student(u):
         # 学生端：按课程展示进度
         enrollments = Enrollment.query.filter_by(student_id=u.id).all()
@@ -557,13 +568,15 @@ def user_analytics():
                     progress_data.append(0)
                     completed_counts.append(0)
                     
-        return ok({
+        data = {
             "role": "student",
             "courseNames": course_names,
             "courseIds": course_ids,
             "progressRates": progress_data,
             "completedCounts": completed_counts
-        })
+        }
+        cache_set_json(cache_key, data, ttl_seconds=60)
+        return ok(data)
         
     elif is_teacher(u):
         # 教师端：只展示"已发布"课程的选修人数分布
@@ -589,13 +602,15 @@ def user_analytics():
             avg = sum(r.rating for r in reviews) / len(reviews) if reviews else 0
             review_averages.append(round(avg, 1))
             
-        return ok({
+        data = {
             "role": "teacher",
             "courseNames": course_names,
             "courseIds": course_ids,
             "enrollCounts": enroll_counts,
             "reviewAverages": review_averages,
             "totalStudents": total_students
-        })
+        }
+        cache_set_json(cache_key, data, ttl_seconds=60)
+        return ok(data)
         
     return err("无权限访问大屏数据", status=403)
