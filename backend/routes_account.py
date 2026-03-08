@@ -551,6 +551,7 @@ def send_reset_code():
     body = request.get_json(silent=True) or {}
     email = normalize_verify_email(body.get("email") or "")
     client_ip = request_client_ip()
+    success_message = "如果该邮箱已注册，验证码已发送，请注意查收"
     limit_state = rate_limit_consume(
         verify_send_rate_limit_key("reset", email, client_ip),
         VERIFY_SEND_RATE_LIMIT_MAX_ATTEMPTS,
@@ -565,14 +566,24 @@ def send_reset_code():
         return err("请输入有效的邮箱地址")
 
     user = User.query.filter_by(email=email).first()
-    if not user:
-        return err("该邮箱未注册账号", status=404)
 
     cooldown_left = verify_code_cooldown_left_seconds(email)
     if cooldown_left > 0:
         return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
 
     code, expires = build_verify_code_payload(PASSWORD_VERIFY_CODE_EXPIRE_MINUTES)
+    if not user:
+        # 对未注册邮箱也写入冷却，避免通过重复试探观察账号是否存在。
+        cache_set_json(
+            verify_code_cooldown_cache_key(email),
+            {"email": email, "active": True},
+            PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS,
+        )
+        return ok(
+            {"expires_seconds": PASSWORD_VERIFY_CODE_EXPIRE_MINUTES * 60, "cooldown_seconds": PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS},
+            success_message,
+        )
+
     sent, reason = send_email_code(
         email,
         code,
@@ -588,7 +599,7 @@ def send_reset_code():
         )
         return ok(
             {"expires_seconds": PASSWORD_VERIFY_CODE_EXPIRE_MINUTES * 60, "cooldown_seconds": PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS},
-            "验证码已发送，请注意查收",
+            success_message,
         )
     return err(reason or "验证码发送失败，请检查系统邮件配置", status=500)
 
@@ -601,6 +612,7 @@ def reset_password():
     email = normalize_verify_email(body.get("email") or "")
     verify_code = (body.get("verify_code") or "").strip()
     new_password = body.get("new_password") or ""
+    invalid_code_message = "验证码错误或已过期，请重新获取"
 
     if "@" not in email:
         return err("请输入有效的邮箱地址")
@@ -611,13 +623,13 @@ def reset_password():
 
     user = User.query.filter_by(email=email).first()
     if not user:
-        return err("该邮箱未注册账号", status=404)
+        return err(invalid_code_message)
 
     vc = load_verify_code_record(email)
     if not vc or vc["code"] != verify_code:
-        return err("验证码错误")
+        return err(invalid_code_message)
     if vc["expires_at"] < now():
-        return err("验证码已过期，请重新获取")
+        return err(invalid_code_message)
 
     user.password_hash = generate_password_hash(new_password)
     user.updated_at = now()
