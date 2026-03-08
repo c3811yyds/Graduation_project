@@ -297,7 +297,7 @@
         <h2>课程留言</h2>
         <p class="muted" v-if="isStudent && !isEnrolled">请先选课后参与留言，当前仅可查看。</p>
 
-        <div class="msg-form" v-if="isTeacher || (isStudent && isEnrolled)">
+        <div class="msg-form" v-if="isTeacherOwner || (isStudent && isEnrolled)">
           <textarea v-model="newMessage" rows="3" placeholder="输入留言内容..." />
           <button class="btn btn-primary" @click="sendMessage">发送留言</button>
         </div>

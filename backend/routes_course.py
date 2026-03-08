@@ -170,6 +170,23 @@ def can_view_content(u, c: Course):
     return True
 
 
+def can_post_message(u, c: Course):
+    """统一收口留言发送权限，避免绕过前端直接调用接口发言。"""
+    if not u:
+        return False
+
+    # 草稿课程仍然只允许课程教师本人发送留言。
+    if c.status == "draft":
+        return is_teacher(u) and c.teacher_id == u.id
+
+    # 已发布课程只允许授课教师本人或已选课学生发送留言。
+    if is_teacher(u):
+        return c.teacher_id == u.id
+    if is_student(u):
+        return is_enrolled(c.id, u.id)
+    return False
+
+
 def course_list_cache_key(u: User | None):
     """按当前浏览身份构造课程列表缓存 key，避免不同用户看到的状态串值。"""
     if u is None:
@@ -993,9 +1010,7 @@ def create_course_message(course_id):
     if not c:
         return err("课程不存在", status=404)
 
-    if is_student(u) and not is_enrolled(course_id, u.id):
-        return err("你未选修该课程，不能留言", status=403)
-    if is_teacher(u) and c.teacher_id != u.id:
+    if not can_post_message(u, c):
         return err("无权限在该课程留言", status=403)
 
     body = request.get_json(silent=True) or {}
