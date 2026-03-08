@@ -939,6 +939,31 @@ def create_course_message(course_id):
     db.session.commit()
     return ok(serialize_message(m), "留言成功", status=201)
 
+
+# [前端对应]: 课程详情页 (CourseDetailView.vue) -> 自己发布的留言右侧点击 "删除"
+# [业务逻辑]: 仅允许留言作者删除自己在当前课程下发布的消息
+@course_bp.delete("/<int:course_id>/messages/<int:message_id>")
+@jwt_required(optional=True)
+def delete_course_message(course_id, message_id):
+    u = current_user()
+    if not u:
+        return err("请先登录", status=401)
+
+    c = course_by_id(course_id)
+    if not c:
+        return err("课程不存在", status=404)
+
+    m = Message.query.filter_by(id=message_id, course_id=course_id).first()
+    if not m:
+        return err("留言不存在", status=404)
+
+    if m.sender_id != u.id:
+        return err("只能删除自己发布的留言", status=403)
+
+    db.session.delete(m)
+    db.session.commit()
+    return ok({"id": message_id}, "留言已删除")
+
 # ---------- reviews ----------
 
 def serialize_review(x: Review, cur_user=None):

@@ -310,6 +310,13 @@
                 <span v-if="m.sender_role === 'teacher'" style="font-size: 0.8em; font-weight: normal; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">老师</span>
               </strong>
               <span class="muted">· {{ formatTime(m.created_at) }}</span>
+              <button
+                v-if="me && m.sender_id === me.id"
+                class="btn btn-sm"
+                @click="deleteMessage(m.id)"
+              >
+                删除
+              </button>
             </div>
             <div style="margin-top: 4px;">{{ m.content }}</div>
           </li>
@@ -872,6 +879,17 @@ async function sendMessage() {
     await loadLearningData();
   } catch (e) {
     alert(e?.response?.data?.message || "发送失败");
+  }
+}
+
+// [后端映射]: DELETE /api/courses/<id>/messages/<message_id> -> 删除自己发布的留言
+async function deleteMessage(messageId) {
+  if (!confirm("确认删除这条留言吗？")) return;
+  try {
+    await http.delete(`/courses/${courseId}/messages/${messageId}`);
+    await loadLearningData();
+  } catch (e) {
+    alert(e?.response?.data?.message || "删除失败");
   }
 }
 
