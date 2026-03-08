@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="page" v-if="course">
     <header class="head">
       <div>
@@ -583,8 +583,12 @@ function token() {
   return sessionStorage.getItem("token") || "";
 }
 
-// 打开媒体预览前，优先换取短时票据，避免把完整 JWT 暴露到 URL 中。
+// 已发布课件直接走公开预览地址；仅受限预览场景才换取短时票据，避免把完整 JWT 暴露到 URL 中。
 async function buildPreviewUrl(contentId) {
+  if (course.value?.status === "published") {
+    return `/api/contents/${contentId}/file`;
+  }
+
   const t = token();
   if (!t) {
     return `/api/contents/${contentId}/file`;

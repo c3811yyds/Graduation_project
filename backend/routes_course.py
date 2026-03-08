@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
@@ -20,8 +20,9 @@ content_bp = Blueprint("contents", __name__, url_prefix="/api/contents")
 
 # 课程与内容相关接口模块（由原 routes_auth.py 拆分）
 
-CONTENT_ACCESS_TICKET_EXPIRE_SECONDS = 60
+CONTENT_ACCESS_TICKET_EXPIRE_SECONDS = 600
 CONTENT_ACCESS_TICKET_SALT = "content-access-ticket"
+# 课件短时访问票据只用于预览链路，避免把 JWT 直接暴露到 URL 查询参数。
 
 # ---------- helpers ----------
 
