@@ -267,24 +267,22 @@ def upload_dir() -> Path:
 
 
 def allowed_ext(filename: str):
-    """判断上传文件扩展名是否允许。"""
+    # SVG 可携带脚本，这里不再允许上传，避免形成同源 XSS 风险。
     if "." not in filename:
         return False
     ext = filename.rsplit(".", 1)[-1].lower()
-    allowed = {
-        # 视频：浏览器通常可直接预览。
+    return ext in {
+        # 视频
         "mp4", "webm", "ogg", "mov", "avi",
-        # 音频：浏览器通常可直接预览。
+        # 音频
         "mp3", "wav", "flac", "aac", "m4a",
-        # 图片：浏览器原生支持预览。
-        "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico",
-        # 文档：PDF 可直接预览，其余通常下载后查看。
+        # 图片
+        "png", "jpg", "jpeg", "gif", "webp", "bmp", "ico",
+        # 文档
         "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "csv", "md",
-        # 压缩包：仅允许上传和下载。
-        "zip", "rar", "7z", "tar", "gz"
+        # 压缩包
+        "zip", "rar", "7z", "tar", "gz",
     }
-    return ext in allowed
-
 
 
 # ---------- courses ----------
@@ -786,7 +784,7 @@ def upload_course_content(course_id):
         ctype = "video"
     elif ext in {"mp3", "wav", "flac", "aac", "m4a"}:
         ctype = "audio"
-    elif ext in {"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"}:
+    elif ext in {"png", "jpg", "jpeg", "gif", "webp", "bmp", "ico"}:
         ctype = "image"
     else:
         ctype = ext
@@ -954,8 +952,10 @@ def access_content_file(content_id):
     
     # 获取原始文件名，如果没有则从路径里拿最后一部分
     download_name = item.title if item.title and "." in item.title else f"{item.title or '未知'}{full.suffix}"
-    
-    return send_file(full, as_attachment=is_download, download_name=download_name)
+
+    # 历史 SVG 资源仍允许下载，但不再内联预览，避免形成同源 XSS 风险。
+    force_attachment = is_download or full.suffix.lower() == ".svg"
+    return send_file(full, as_attachment=force_attachment, download_name=download_name)
 
 
 # ---------- messages ----------

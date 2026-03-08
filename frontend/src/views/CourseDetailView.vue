@@ -192,7 +192,7 @@
           </p>
           <div class="upload-row">
             <input v-model="uploadTitle" placeholder="课件标题（留空自动生成：第X讲-文件名）" style="flex:1" />
-            <input type="file" @change="pickFile" accept=".mp4,.webm,.ogg,.mov,.avi,.mp3,.wav,.flac,.aac,.m4a,.png,.jpg,.jpeg,.gif,.webp,.svg,.bmp,.ico,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.md,.zip,.rar,.7z,.tar,.gz" />
+            <input type="file" @change="pickFile" accept=".mp4,.webm,.ogg,.mov,.avi,.mp3,.wav,.flac,.aac,.m4a,.png,.jpg,.jpeg,.gif,.webp,.bmp,.ico,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.md,.zip,.rar,.7z,.tar,.gz" />
             <button class="btn btn-primary" :disabled="!uploadFile" @click="uploadContent">
               上传
             </button>
@@ -505,7 +505,8 @@ const currentPreviewKind = computed(() => {
   if (["audio"].includes((currentPlayingContent.value.type || "").toLowerCase()) || /\.(mp3|wav|flac|aac|m4a)$/i.test(source)) {
     return "audio";
   }
-  if (["image"].includes((currentPlayingContent.value.type || "").toLowerCase()) || /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i.test(source)) {
+  // 为避免 SVG 被当成可内联执行脚本的图片预览，这里只保留安全的常见图片扩展名。
+  if (["image"].includes((currentPlayingContent.value.type || "").toLowerCase()) || /\.(png|jpg|jpeg|gif|webp|bmp|ico)$/i.test(source)) {
     return "image";
   }
   if (["pdf"].includes((currentPlayingContent.value.type || "").toLowerCase()) || /\.pdf$/i.test(source)) {
