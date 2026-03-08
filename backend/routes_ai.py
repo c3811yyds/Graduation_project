@@ -3,7 +3,6 @@ from flask import Blueprint, request, Response, stream_with_context
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
 from models import User
-from sensitive_filter import reject_sensitive_fields
 
 # 创建 AI 专属蓝图
 ai_bp = Blueprint("ai", __name__, url_prefix="/api/ai")
@@ -48,9 +47,6 @@ def ai_chat():
     if not user:
         return err("请先登录", status=401)
 
-    sensitive_err = reject_sensitive_fields({"AI消息内容": user_message}, err, scene="content")
-    if sensitive_err:
-        return sensitive_err
 
     api_key = os.getenv("SILICON_API_KEY")
 
