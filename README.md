@@ -110,7 +110,9 @@
      - JWT_SECRET_KEY=填入你的JWT密钥
      - DATABASE_URL=mysql+pymysql://你的账号:你的密码@127.0.0.1:3306/graduation_project?charset=utf8mb4
      - SILICON_API_KEY=sk-xxxxxxx (替换为你自己的硅基流动 API Key)
+     - REDIS_URL=redis://127.0.0.1:6379/0 (本地 Redis 地址；线上接入 Redis 服务后改成对应容器地址)
      - MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD=填入你的发信邮箱配置(用于发送注册验证码)
+     - MAIL_CONSOLE_FALLBACK=false (开发环境可设为 true，邮件未配好时仅在后端控制台打印验证码)
      - ADMIN_INIT_EMAIL=可选，首次启动时要提升/创建的管理员邮箱
      - ADMIN_INIT_USERNAME=可选，默认 admin，仅在自动创建管理员时使用
      - ADMIN_INIT_PASSWORD=可选，自动创建管理员时使用的初始密码
@@ -141,7 +143,7 @@
    - 忘记密码：登录页通过邮箱验证码重置密码
    - 已登录修改密码：个人中心通过邮箱验证码更新密码
    - 密码验证码规则：2 分钟有效，60 秒发送冷却
-   - Redis 接入：课程列表、个人数据总览、管理员概览/总览已接入 Redis 缓存；注册/找回密码/个人中心改密验证码与冷却时间已迁 Redis，`verify_codes` 表保留兼容兜底
+   - Redis 接入：课程列表、个人数据总览、管理员概览/总览已接入 Redis 缓存；注册/找回密码/个人中心改密验证码与冷却时间已迁 Redis，`verify_codes` 表保留兼容兜底；登录失败次数、验证码请求频率、AI 对话请求频率已接入 Redis 限流
    - 引入独立的系统分配教师邀请码机制
    - 基于 SessionStorage 的跨 Tab 页独立登录环境机制
 

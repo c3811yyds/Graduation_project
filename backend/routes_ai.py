@@ -2,10 +2,13 @@ import os
 from flask import Blueprint, request, Response, stream_with_context
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
+from cache_utils import rate_limit_consume
 from models import User
 
 # 创建 AI 专属蓝图
 ai_bp = Blueprint("ai", __name__, url_prefix="/api/ai")
+AI_CHAT_RATE_LIMIT_MAX_REQUESTS = 12
+AI_CHAT_RATE_LIMIT_WINDOW_SECONDS = 60
 
 
 def as_int(v):
@@ -26,8 +29,14 @@ def current_user():
         return None
     return user
 
+
+def ai_chat_rate_limit_key(user_id: int, ip: str):
+    """按用户和来源 IP 组合生成 AI 对话限流键。"""
+    normalized_ip = (ip or "").strip() or "unknown"
+    return f"rate:ai-chat:{user_id}:{normalized_ip}"
+
 # [前端对应]: 左侧 AI 助教抽屉 (AiChatSidebar.vue) -> 发送问题并接收流式回复
-# [业务逻辑]: 校验登录与敏感词后，转发到大模型并以 SSE 持续回传分片内容
+# [业务逻辑]: 校验登录和请求频率后，转发到大模型并以 SSE 持续回传分片内容
 @ai_bp.post("/chat")
 @jwt_required()
 def ai_chat():
@@ -46,6 +55,17 @@ def ai_chat():
 
     if not user:
         return err("请先登录", status=401)
+
+    limit_state = rate_limit_consume(
+        ai_chat_rate_limit_key(user.id, request.remote_addr),
+        AI_CHAT_RATE_LIMIT_MAX_REQUESTS,
+        AI_CHAT_RATE_LIMIT_WINDOW_SECONDS,
+    )
+    if not limit_state["allowed"]:
+        return err(
+            f"AI 请求过于频繁，请{limit_state['retry_after']}秒后再试",
+            status=429,
+        )
 
 
     api_key = os.getenv("SILICON_API_KEY")

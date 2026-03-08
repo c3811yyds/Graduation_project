@@ -14,7 +14,16 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from cache_utils import cache_delete, cache_get_json, cache_set_json, cache_ttl
+from cache_utils import (
+    cache_delete,
+    cache_get_json,
+    cache_set_json,
+    cache_ttl,
+    rate_limit_consume,
+    rate_limit_record_failure,
+    rate_limit_reset,
+    rate_limit_state,
+)
 from extensions import db
 from models import User, Course, Enrollment, Content, Progress, Review, VerifyCode, TeacherInviteCode
 from sensitive_filter import reject_sensitive_fields
@@ -187,6 +196,21 @@ def analytics_cache_key(user_id: int):
     return f"analytics:user:{user_id}"
 
 
+def login_rate_limit_key(account: str, ip: str):
+    """按账号和来源 IP 组合生成登录限流键，避免单个账号被短时间高频试探。"""
+    normalized_account = (account or "").strip().lower() or "anonymous"
+    normalized_ip = (ip or "").strip() or "unknown"
+    return f"rate:login:{normalized_account}:{normalized_ip}"
+
+
+def verify_send_rate_limit_key(scene: str, email: str, ip: str):
+    """按发送场景、邮箱和来源 IP 组合生成验证码发送限流键。"""
+    normalized_scene = (scene or "").strip().lower() or "generic"
+    normalized_email = normalize_verify_email(email).lower() or "anonymous"
+    normalized_ip = (ip or "").strip() or "unknown"
+    return f"rate:verify-send:{normalized_scene}:{normalized_email}:{normalized_ip}"
+
+
 def invalidate_admin_overview_cache():
     """账号数量或邀请码数量变动后，清理管理员首页统计卡片缓存。"""
     cache_delete("admin:overview")
@@ -197,6 +221,10 @@ def invalidate_admin_overview_cache():
 
 PASSWORD_VERIFY_CODE_EXPIRE_MINUTES = 2
 PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS = 60
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 8
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = 120
+VERIFY_SEND_RATE_LIMIT_MAX_ATTEMPTS = 8
+VERIFY_SEND_RATE_LIMIT_WINDOW_SECONDS = 600
 
 
 def mail_console_fallback_enabled():
@@ -307,8 +335,19 @@ def password_code_cooldown_left_seconds(email: str):
 # [业务逻辑]: 生成并保存邮箱验证码，写入过期时间并尝试发送邮件
 @auth_bp.post("/send-code")
 def send_code():
+    """发送注册验证码，并在高频请求时触发 Redis 防刷限流。"""
     body = request.get_json(silent=True) or {}
     email = normalize_verify_email(body.get("email") or "")
+    limit_state = rate_limit_consume(
+        verify_send_rate_limit_key("register", email, request.remote_addr),
+        VERIFY_SEND_RATE_LIMIT_MAX_ATTEMPTS,
+        VERIFY_SEND_RATE_LIMIT_WINDOW_SECONDS,
+    )
+    if not limit_state["allowed"]:
+        return err(
+            f"验证码请求过于频繁，请{limit_state['retry_after']}秒后再试",
+            status=429,
+        )
     if "@" not in email:
         return err("请输入有效的邮箱地址")
         
@@ -447,16 +486,30 @@ def list_my_invite_codes():
 # [业务逻辑]: 支持用户名或邮箱登录，校验密码与账号状态后签发 JWT
 @auth_bp.post("/login")
 def login():
+    """校验登录凭据，并仅对连续失败的尝试做 Redis 限流。"""
     body = request.get_json(silent=True) or {}
     account = (body.get("username") or "").strip()
     password = body.get("password") or ""
+    rate_limit_key = login_rate_limit_key(account, request.remote_addr)
+
+    limit_state = rate_limit_state(
+        rate_limit_key,
+        LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+    )
+    if not limit_state["allowed"]:
+        return err(
+            f"登录尝试过于频繁，请{limit_state['retry_after']}秒后再试",
+            status=429,
+        )
 
     u = User.query.filter((User.username == account) | (User.email == account)).first()
     if not u or not check_password_hash(u.password_hash, password):
+        rate_limit_record_failure(rate_limit_key, LOGIN_RATE_LIMIT_WINDOW_SECONDS)
         return err("用户名/邮箱或密码错误", status=401)
 
     if u.status != "active":
         return err("账号已被停用", status=403)
+    rate_limit_reset(rate_limit_key)
     token = create_access_token(identity=str(u.id))
     return ok(
         {"token": token, "user": {"id": u.id, "username": u.username, "role": u.role}},
@@ -468,8 +521,19 @@ def login():
 # [业务逻辑]: 给已注册邮箱发送重置密码验证码（2分钟有效，60秒内不可重复发送）
 @auth_bp.post("/send-reset-code")
 def send_reset_code():
+    """发送找回密码验证码，并在邮箱冷却之外补一层 Redis 防刷限流。"""
     body = request.get_json(silent=True) or {}
     email = normalize_verify_email(body.get("email") or "")
+    limit_state = rate_limit_consume(
+        verify_send_rate_limit_key("reset", email, request.remote_addr),
+        VERIFY_SEND_RATE_LIMIT_MAX_ATTEMPTS,
+        VERIFY_SEND_RATE_LIMIT_WINDOW_SECONDS,
+    )
+    if not limit_state["allowed"]:
+        return err(
+            f"验证码请求过于频繁，请{limit_state['retry_after']}秒后再试",
+            status=429,
+        )
     if "@" not in email:
         return err("请输入有效的邮箱地址")
 
@@ -605,9 +669,21 @@ def update_profile():
 @user_bp.post("/me/password-code")
 @jwt_required()
 def send_my_password_code():
+    """发送个人中心改密验证码，并补充 Redis 级请求限流防刷。"""
     u = current_user()
     if not u:
         return err("请求未授权", status=401)
+
+    limit_state = rate_limit_consume(
+        verify_send_rate_limit_key("change-password", u.email, request.remote_addr),
+        VERIFY_SEND_RATE_LIMIT_MAX_ATTEMPTS,
+        VERIFY_SEND_RATE_LIMIT_WINDOW_SECONDS,
+    )
+    if not limit_state["allowed"]:
+        return err(
+            f"验证码请求过于频繁，请{limit_state['retry_after']}秒后再试",
+            status=429,
+        )
 
     cooldown_left = password_code_cooldown_left_seconds(u.email)
     if cooldown_left > 0:
