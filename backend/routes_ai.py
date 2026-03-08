@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 import json
 from cache_utils import rate_limit_consume
 from models import User
+from request_utils import request_client_ip
 
 # 创建 AI 专属蓝图
 ai_bp = Blueprint("ai", __name__, url_prefix="/api/ai")
@@ -57,7 +58,7 @@ def ai_chat():
         return err("请先登录", status=401)
 
     limit_state = rate_limit_consume(
-        ai_chat_rate_limit_key(user.id, request.remote_addr),
+        ai_chat_rate_limit_key(user.id, request_client_ip()),
         AI_CHAT_RATE_LIMIT_MAX_REQUESTS,
         AI_CHAT_RATE_LIMIT_WINDOW_SECONDS,
     )

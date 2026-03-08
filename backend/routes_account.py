@@ -26,6 +26,7 @@ from cache_utils import (
 )
 from extensions import db
 from models import User, Course, Enrollment, Content, Progress, Review, VerifyCode, TeacherInviteCode
+from request_utils import request_client_ip
 from sensitive_filter import reject_sensitive_fields
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -219,6 +220,8 @@ def invalidate_admin_overview_cache():
 
 # ---------- auth ----------
 
+REGISTER_VERIFY_CODE_EXPIRE_MINUTES = 5
+REGISTER_VERIFY_CODE_COOLDOWN_SECONDS = 60
 PASSWORD_VERIFY_CODE_EXPIRE_MINUTES = 2
 PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS = 60
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 8
@@ -254,12 +257,12 @@ def send_email_code(email: str, code: str, scene_name: str = "账号注册", val
     mail_user = os.getenv("MAIL_USERNAME")
     mail_pass = os.getenv("MAIL_PASSWORD")
 
-    print(f"========== 验证码已生成 [用于测试/备用] ==========")
-    print(f"邮箱: {email} | 验证码: {code}")
-    print(f"==================================================")
-
     if not all([mail_server, mail_port, mail_user, mail_pass]):
         if mail_console_fallback_enabled():
+            # 仅在显式开启控制台兜底时输出验证码。
+            print(f"========== 验证码已生成 [控制台兜底] ==========")
+            print(f"邮箱: {email} | 验证码: {code}")
+            print(f"==================================================")
             print("注意: 暂未配置完整的 MAIL 相关环境变量(MAIL_SERVER等)，当前按开发模式仅在控制台打印验证码")
             return True, None
         return False, "当前系统未完成邮件服务配置，请联系管理员"
@@ -311,7 +314,7 @@ def save_verify_code_record(
     db.session.commit()
 
 
-def password_code_cooldown_left_seconds(email: str):
+def verify_code_cooldown_left_seconds(email: str):
     """优先读取 Redis 冷却剩余时间，数据库仅作为兼容兜底。"""
     email = normalize_verify_email(email)
     cooldown_left = cache_ttl(verify_code_cooldown_cache_key(email))
@@ -338,8 +341,9 @@ def send_code():
     """发送注册验证码，并在高频请求时触发 Redis 防刷限流。"""
     body = request.get_json(silent=True) or {}
     email = normalize_verify_email(body.get("email") or "")
+    client_ip = request_client_ip()
     limit_state = rate_limit_consume(
-        verify_send_rate_limit_key("register", email, request.remote_addr),
+        verify_send_rate_limit_key("register", email, client_ip),
         VERIFY_SEND_RATE_LIMIT_MAX_ATTEMPTS,
         VERIFY_SEND_RATE_LIMIT_WINDOW_SECONDS,
     )
@@ -353,12 +357,32 @@ def send_code():
         
     if User.query.filter_by(email=email).first():
         return err("该邮箱已注册账号，请直接登录", status=409)
-        
-    code, expires = build_verify_code_payload(5)
-    sent, reason = send_email_code(email, code, scene_name="账号注册", valid_minutes=5)
+
+    cooldown_left = verify_code_cooldown_left_seconds(email)
+    if cooldown_left > 0:
+        return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
+
+    code, expires = build_verify_code_payload(REGISTER_VERIFY_CODE_EXPIRE_MINUTES)
+    sent, reason = send_email_code(
+        email,
+        code,
+        scene_name="账号注册",
+        valid_minutes=REGISTER_VERIFY_CODE_EXPIRE_MINUTES,
+    )
     if sent:
-        save_verify_code_record(email, code, expires)
-        return ok(None, "验证码已发送，请注意查收")
+        save_verify_code_record(
+            email,
+            code,
+            expires,
+            cooldown_seconds=REGISTER_VERIFY_CODE_COOLDOWN_SECONDS,
+        )
+        return ok(
+            {
+                "expires_seconds": REGISTER_VERIFY_CODE_EXPIRE_MINUTES * 60,
+                "cooldown_seconds": REGISTER_VERIFY_CODE_COOLDOWN_SECONDS,
+            },
+            "验证码已发送，请注意查收",
+        )
     else:
         return err(reason or "验证码发送失败，请检查系统邮件配置", status=500)
 
@@ -490,11 +514,13 @@ def login():
     body = request.get_json(silent=True) or {}
     account = (body.get("username") or "").strip()
     password = body.get("password") or ""
-    rate_limit_key = login_rate_limit_key(account, request.remote_addr)
+    rate_limit_key = login_rate_limit_key(account, request_client_ip())
 
     limit_state = rate_limit_state(
         rate_limit_key,
-        LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+        # 这里只看“当前请求前”已经累计的失败次数。
+        # 当历史失败数达到 8 次时，本次请求应直接进入锁定态。
+        LOGIN_RATE_LIMIT_MAX_ATTEMPTS - 1,
     )
     if not limit_state["allowed"]:
         return err(
@@ -524,8 +550,9 @@ def send_reset_code():
     """发送找回密码验证码，并在邮箱冷却之外补一层 Redis 防刷限流。"""
     body = request.get_json(silent=True) or {}
     email = normalize_verify_email(body.get("email") or "")
+    client_ip = request_client_ip()
     limit_state = rate_limit_consume(
-        verify_send_rate_limit_key("reset", email, request.remote_addr),
+        verify_send_rate_limit_key("reset", email, client_ip),
         VERIFY_SEND_RATE_LIMIT_MAX_ATTEMPTS,
         VERIFY_SEND_RATE_LIMIT_WINDOW_SECONDS,
     )
@@ -541,7 +568,7 @@ def send_reset_code():
     if not user:
         return err("该邮箱未注册账号", status=404)
 
-    cooldown_left = password_code_cooldown_left_seconds(email)
+    cooldown_left = verify_code_cooldown_left_seconds(email)
     if cooldown_left > 0:
         return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
 
@@ -675,7 +702,7 @@ def send_my_password_code():
         return err("请求未授权", status=401)
 
     limit_state = rate_limit_consume(
-        verify_send_rate_limit_key("change-password", u.email, request.remote_addr),
+        verify_send_rate_limit_key("change-password", u.email, request_client_ip()),
         VERIFY_SEND_RATE_LIMIT_MAX_ATTEMPTS,
         VERIFY_SEND_RATE_LIMIT_WINDOW_SECONDS,
     )
@@ -685,7 +712,7 @@ def send_my_password_code():
             status=429,
         )
 
-    cooldown_left = password_code_cooldown_left_seconds(u.email)
+    cooldown_left = verify_code_cooldown_left_seconds(u.email)
     if cooldown_left > 0:
         return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
 
