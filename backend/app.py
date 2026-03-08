@@ -35,10 +35,12 @@ def create_app():
         "mysql+pymysql://gp_user:gp_user@127.0.0.1:3306/graduation_project?charset=utf8mb4",
     )
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    app.config["JWT_SECRET_KEY"] = os.getenv(
-        "JWT_SECRET_KEY",
-        "gp_dev_super_secret_key_2026_please_change_32bytes_plus",
-    )
+    jwt_secret_key = (os.getenv("JWT_SECRET_KEY") or "").strip()
+    # JWT 密钥禁止回退到代码内置默认值，漏配时直接启动失败。
+    if not jwt_secret_key:
+        raise RuntimeError("JWT_SECRET_KEY 未配置，后端拒绝启动")
+    app.config["JWT_SECRET_KEY"] = jwt_secret_key
+    
     # Redis 先只接基础连接，后续再逐步接入缓存和限流逻辑。
     app.config["REDIS_URL"] = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
     app.config["APP_VERSION"] = load_app_version()
