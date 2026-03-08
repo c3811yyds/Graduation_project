@@ -14,7 +14,7 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from cache_utils import cache_get_json, cache_set_json
+from cache_utils import cache_delete, cache_get_json, cache_set_json
 from extensions import db
 from models import User, Course, Enrollment, Content, Progress, Review, VerifyCode, TeacherInviteCode
 from sensitive_filter import reject_sensitive_fields
@@ -107,6 +107,11 @@ def build_teacher_invite_code():
 def analytics_cache_key(user_id: int):
     """按用户维度区分数据总览缓存，避免不同账号读到彼此的统计结果。"""
     return f"analytics:user:{user_id}"
+
+
+def invalidate_admin_overview_cache():
+    """账号数量或邀请码数量变动后，清理管理员首页统计卡片缓存。"""
+    cache_delete("admin:overview")
 
 
 
@@ -262,6 +267,7 @@ def register():
         invite_record.is_used = True
         invite_record.used_by_id = u.id
     db.session.commit()
+    invalidate_admin_overview_cache()
 
     return ok({"id": u.id, "username": u.username, "role": u.role}, "注册成功", status=201)
 
@@ -280,6 +286,7 @@ def generate_invite():
     ic = TeacherInviteCode(code=code, expires_at=expires, created_by_id=u.id)
     db.session.add(ic)
     db.session.commit()
+    invalidate_admin_overview_cache()
 
     return ok(serialize_invite_code(ic), "邀请码生成成功")
 

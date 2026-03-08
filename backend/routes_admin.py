@@ -11,16 +11,13 @@ from werkzeug.security import generate_password_hash
 
 from extensions import db
 from models import (
-    Content,
     Course,
     Enrollment,
-    Message,
-    Note,
     Review,
-    ReviewLike,
     TeacherInviteCode,
     User,
 )
+from cache_utils import cache_delete, cache_get_json, cache_set_json
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -93,42 +90,6 @@ def serialize_user(user: User):
         "role": user.role,
         "status": user.status,
         "created_at": iso(user.created_at),
-        "updated_at": iso(user.updated_at),
-    }
-
-
-def serialize_review(review: Review):
-    """序列化管理员视角下的评价信息。"""
-    course = Course.query.get(review.course_id)
-    author = User.query.get(review.user_id)
-    return {
-        "id": review.id,
-        "course_id": review.course_id,
-        "course_title": course.title if course else "未知课程",
-        "user_id": review.user_id,
-        "username": author.username if author else "未知用户",
-        "rating": review.rating,
-        "comment": review.comment,
-        "reply_content": review.reply_content,
-        "created_at": iso(review.created_at),
-    }
-
-
-def serialize_message(message: Message):
-    """序列化管理员视角下的留言信息。"""
-    course = Course.query.get(message.course_id)
-    sender = User.query.get(message.sender_id)
-    receiver = User.query.get(message.receiver_id) if message.receiver_id else None
-    return {
-        "id": message.id,
-        "course_id": message.course_id,
-        "course_title": course.title if course else "未知课程",
-        "sender_id": message.sender_id,
-        "sender_name": sender.username if sender else "未知用户",
-        "receiver_id": message.receiver_id,
-        "receiver_name": receiver.username if receiver else "",
-        "content": message.content,
-        "created_at": iso(message.created_at),
     }
 
 
@@ -142,11 +103,25 @@ def serialize_invite(code: TeacherInviteCode):
         "is_used": bool(code.is_used),
         "expires_at": iso(code.expires_at),
         "is_expired": bool(code.expires_at and code.expires_at < now()),
-        "created_by_id": code.created_by_id,
         "created_by_name": creator.username if creator else "",
-        "used_by_id": code.used_by_id,
         "used_by_name": used_by.username if used_by else "",
     }
+
+
+def admin_overview_cache_key():
+    """返回管理员概览统计缓存键。"""
+    return "admin:overview"
+
+
+def admin_analytics_cache_key():
+    """返回管理员数据总览缓存键。"""
+    return "admin:analytics"
+
+
+def invalidate_admin_overview_cache():
+    """管理员修改账号状态或邀请码后，清理首页统计卡片缓存。"""
+    cache_delete(admin_overview_cache_key())
+
 
 def bootstrap_admin_account():
     """按环境变量自动创建或提升管理员账号。"""
@@ -195,7 +170,7 @@ def bootstrap_admin_account():
 
 
 # [前端对应]: 管理员后台首页 (AdminView.vue) -> 顶部统计卡片
-# [业务逻辑]: 汇总账号、课程、课件、评价、留言、邀请码等基础统计数据
+# [业务逻辑]: 返回账号总数、启用停用状态、角色分布和可用邀请码等首页卡片数据
 @admin_bp.get("/overview")
 @jwt_required()
 def admin_overview():
@@ -204,26 +179,24 @@ def admin_overview():
     if denied:
         return denied
 
-    return ok(
-        {
-            "user_count": User.query.count(),
-            "active_user_count": User.query.filter_by(status="active").count(),
-            "disabled_user_count": User.query.filter_by(status="disabled").count(),
-            "admin_count": User.query.filter_by(role="admin").count(),
-            "teacher_count": User.query.filter_by(role="teacher").count(),
-            "student_count": User.query.filter_by(role="student").count(),
-            "course_count": Course.query.count(),
-            "published_course_count": Course.query.filter_by(status="published").count(),
-            "content_count": Content.query.count(),
-            "enrollment_count": Enrollment.query.count(),
-            "review_count": Review.query.count(),
-            "message_count": Message.query.count(),
-            "note_count": Note.query.count(),
-            "unused_invite_count": TeacherInviteCode.query.filter_by(is_used=False).filter(
-                TeacherInviteCode.expires_at >= now()
-            ).count(),
-        }
-    )
+    cache_key = admin_overview_cache_key()
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return ok(cached)
+
+    data = {
+        "user_count": User.query.count(),
+        "active_user_count": User.query.filter_by(status="active").count(),
+        "disabled_user_count": User.query.filter_by(status="disabled").count(),
+        "admin_count": User.query.filter_by(role="admin").count(),
+        "teacher_count": User.query.filter_by(role="teacher").count(),
+        "student_count": User.query.filter_by(role="student").count(),
+        "unused_invite_count": TeacherInviteCode.query.filter_by(is_used=False).filter(
+            TeacherInviteCode.expires_at >= now()
+        ).count(),
+    }
+    cache_set_json(cache_key, data, ttl_seconds=60)
+    return ok(data)
 
 
 # [前端对应]: 数据总览页 (DashboardView.vue) -> 管理员视角的全课程统计图表
@@ -236,35 +209,36 @@ def admin_analytics():
     if denied:
         return denied
 
+    cache_key = admin_analytics_cache_key()
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return ok(cached)
+
     courses = Course.query.filter_by(status="published").all()
     course_names = []
     course_ids = []
     enroll_counts = []
     review_averages = []
-    total_students = 0
-
     for course in courses:
         course_names.append(course.title)
         course_ids.append(course.id)
 
         enroll_count = Enrollment.query.filter_by(course_id=course.id).count()
         enroll_counts.append(enroll_count)
-        total_students += enroll_count
 
         reviews = Review.query.filter_by(course_id=course.id).all()
         avg_rating = sum(review.rating for review in reviews) / len(reviews) if reviews else 0
         review_averages.append(round(avg_rating, 1))
 
-    return ok(
-        {
-            "role": "admin",
-            "courseNames": course_names,
-            "courseIds": course_ids,
-            "enrollCounts": enroll_counts,
-            "reviewAverages": review_averages,
-            "totalStudents": total_students,
-        }
-    )
+    data = {
+        "role": "admin",
+        "courseNames": course_names,
+        "courseIds": course_ids,
+        "enrollCounts": enroll_counts,
+        "reviewAverages": review_averages,
+    }
+    cache_set_json(cache_key, data, ttl_seconds=60)
+    return ok(data)
 
 
 # [前端对应]: 管理员后台 (AdminView.vue) -> “账号管理” 标签页列表
@@ -319,14 +293,8 @@ def admin_list_users():
             "items": [serialize_user(user) for user in users],
             "pagination": {
                 "page": page,
-                "page_size": page_size,
                 "total": total,
                 "total_pages": total_pages,
-            },
-            "filters": {
-                "keyword": keyword,
-                "role": role,
-                "status": status,
             },
         }
     )
@@ -362,74 +330,8 @@ def admin_update_user_status(user_id):
     target.status = new_status
     target.updated_at = now()
     db.session.commit()
+    invalidate_admin_overview_cache()
     return ok(serialize_user(target), "账号状态已更新")
-
-
-# [前端对应]: 当前前端未单独开放页面，保留给管理员后续全站评价治理使用
-# [业务逻辑]: 返回全站评价列表，按创建时间倒序
-@admin_bp.get("/reviews")
-@jwt_required()
-def admin_list_reviews():
-    """返回全站评价列表。"""
-    _, denied = require_admin()
-    if denied:
-        return denied
-
-    reviews = Review.query.order_by(Review.created_at.desc(), Review.id.desc()).all()
-    return ok({"items": [serialize_review(review) for review in reviews]})
-
-
-# [前端对应]: 当前前端未单独开放页面，保留给管理员后续全站评价治理使用
-# [业务逻辑]: 删除指定评价，并级联清理点赞记录
-@admin_bp.delete("/reviews/<int:review_id>")
-@jwt_required()
-def admin_delete_review(review_id):
-    """删除指定评价及其点赞记录。"""
-    _, denied = require_admin()
-    if denied:
-        return denied
-
-    review = Review.query.get(review_id)
-    if not review:
-        return err("评价不存在", status=404)
-
-    ReviewLike.query.filter_by(review_id=review_id).delete()
-    db.session.delete(review)
-    db.session.commit()
-    return ok({"id": review_id}, "评价已删除")
-
-
-# [前端对应]: 当前前端未单独开放页面，保留给管理员后续全站留言治理使用
-# [业务逻辑]: 返回全站留言列表，按创建时间倒序
-@admin_bp.get("/messages")
-@jwt_required()
-def admin_list_messages():
-    """返回全站留言列表。"""
-    _, denied = require_admin()
-    if denied:
-        return denied
-
-    messages = Message.query.order_by(Message.created_at.desc(), Message.id.desc()).all()
-    return ok({"items": [serialize_message(message) for message in messages]})
-
-
-# [前端对应]: 当前前端未单独开放页面，保留给管理员后续全站留言治理使用
-# [业务逻辑]: 删除指定留言
-@admin_bp.delete("/messages/<int:message_id>")
-@jwt_required()
-def admin_delete_message(message_id):
-    """删除指定留言。"""
-    _, denied = require_admin()
-    if denied:
-        return denied
-
-    message = Message.query.get(message_id)
-    if not message:
-        return err("留言不存在", status=404)
-
-    db.session.delete(message)
-    db.session.commit()
-    return ok({"id": message_id}, "留言已删除")
 
 
 # [前端对应]: 管理员后台 (AdminView.vue) -> “教师邀请码” 标签页列表
@@ -493,13 +395,8 @@ def admin_list_invite_codes():
             "items": [serialize_invite(code) for code in invite_codes],
             "pagination": {
                 "page": page,
-                "page_size": page_size,
                 "total": total,
                 "total_pages": total_pages,
-            },
-            "filters": {
-                "keyword": keyword,
-                "status": status,
             },
         }
     )
@@ -532,6 +429,7 @@ def admin_create_invite_code():
     )
     db.session.add(invite_code)
     db.session.commit()
+    invalidate_admin_overview_cache()
     return ok(
         serialize_invite(invite_code),
         f"已生成 {expire_days} 天有效的教师邀请码",

@@ -115,11 +115,16 @@ def invalidate_course_list_cache():
     cache_delete_pattern("courses:list:*")
 
 
-def invalidate_user_analytics_cache(student_id: int | None):
-    """按学生维度精准清理个人数据总览缓存，避免无关用户缓存被一起删除。"""
-    if not student_id:
+def invalidate_user_analytics_cache(user_id: int | None):
+    """按用户维度精准清理个人数据总览缓存，兼容学生和教师的总览图表更新。"""
+    if not user_id:
         return
-    cache_delete(f"analytics:user:{student_id}")
+    cache_delete(f"analytics:user:{user_id}")
+
+
+def invalidate_admin_analytics_cache():
+    """课程图表相关数据变动后，清理管理员总览图表缓存。"""
+    cache_delete("admin:analytics")
 
 
 def serialize_course(c: Course, u: User | None = None):
@@ -349,6 +354,9 @@ def update_course(course_id):
     c.updated_at = now()
     db.session.commit()
     invalidate_course_list_cache()
+    if c.status == "published":
+        invalidate_user_analytics_cache(c.teacher_id)
+        invalidate_admin_analytics_cache()
     return ok(serialize_course(c, u), "更新成功")
 
 
@@ -372,6 +380,8 @@ def publish_course(course_id):
     c.updated_at = now()
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_user_analytics_cache(c.teacher_id)
+    invalidate_admin_analytics_cache()
     return ok(serialize_course(c, u), "发布成功")
 
 
@@ -395,6 +405,8 @@ def unpublish_course(course_id):
     c.updated_at = now()
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_user_analytics_cache(c.teacher_id)
+    invalidate_admin_analytics_cache()
     return ok(serialize_course(c, u), "下架成功")
 
 
@@ -471,6 +483,8 @@ def enroll(course_id):
     db.session.commit()
     invalidate_course_list_cache()
     invalidate_user_analytics_cache(u.id)
+    invalidate_user_analytics_cache(c.teacher_id)
+    invalidate_admin_analytics_cache()
     return ok({"course_id": course_id, "status": "enrolled"}, "选课成功")
 
 
@@ -482,12 +496,15 @@ def drop(course_id):
     u = current_user()
     if not u or not is_student(u):
         return err("禁止操作", status=403)
+    c = course_by_id(course_id)
     rec = Enrollment.query.filter_by(course_id=course_id, student_id=u.id).first()
     if rec:
         db.session.delete(rec)
         db.session.commit()
         invalidate_course_list_cache()
         invalidate_user_analytics_cache(u.id)
+        invalidate_user_analytics_cache(c.teacher_id if c else None)
+        invalidate_admin_analytics_cache()
     return ok(None, "退课成功")
 
 
@@ -605,6 +622,7 @@ def record_content_view(content_id):
         )
         db.session.add(p)
         db.session.commit()
+        invalidate_user_analytics_cache(u.id)
 
     return ok(None, "进度更新成功")
 
@@ -999,6 +1017,8 @@ def create_course_review(course_id):
     db.session.commit()
     invalidate_course_list_cache()
     invalidate_user_analytics_cache(u.id)
+    invalidate_user_analytics_cache(c.teacher_id)
+    invalidate_admin_analytics_cache()
 
     return ok(serialize_review(r), "评价成功", status=201)
 
@@ -1023,6 +1043,8 @@ def delete_course_review(course_id, review_id):
     db.session.commit()
     invalidate_course_list_cache()
     invalidate_user_analytics_cache(r.user_id)
+    invalidate_user_analytics_cache(c.teacher_id)
+    invalidate_admin_analytics_cache()
     return ok({"id": review_id}, "评价已删除")
 
 # [前端对应]: 课程详情页 (CourseDetailView.vue) -> "官方追加回复" 互动动作提交
