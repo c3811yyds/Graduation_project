@@ -14,7 +14,7 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from cache_utils import cache_delete, cache_get_json, cache_set_json
+from cache_utils import cache_delete, cache_get_json, cache_set_json, cache_ttl
 from extensions import db
 from models import User, Course, Enrollment, Content, Progress, Review, VerifyCode, TeacherInviteCode
 from sensitive_filter import reject_sensitive_fields
@@ -83,6 +83,79 @@ def is_admin(u: User):
 def course_by_id(course_id: int):
     """按主键查询课程。"""
     return Course.query.get(course_id)
+
+
+def normalize_verify_email(email: str):
+    """统一验证码相关邮箱键，避免同一邮箱因空格导致缓存和数据库不一致。"""
+    return (email or "").strip()
+
+
+def verify_code_cache_key(email: str):
+    """生成邮箱验证码缓存键。"""
+    return f"verify:code:{normalize_verify_email(email)}"
+
+
+def verify_code_cooldown_cache_key(email: str):
+    """生成邮箱验证码发送冷却缓存键。"""
+    return f"verify:cooldown:{normalize_verify_email(email)}"
+
+
+def write_verify_code_cache(
+    email: str,
+    code: str,
+    expires_at: datetime,
+    cooldown_seconds: int = 0,
+):
+    """把验证码主数据和冷却时间一起写入 Redis。"""
+    email = normalize_verify_email(email)
+    ttl_seconds = max(1, int((expires_at - now()).total_seconds()))
+    cache_set_json(
+        verify_code_cache_key(email),
+        {"email": email, "code": code, "expires_at": expires_at.isoformat()},
+        ttl_seconds,
+    )
+    if cooldown_seconds > 0:
+        cache_set_json(
+            verify_code_cooldown_cache_key(email),
+            {"email": email, "active": True},
+            cooldown_seconds,
+        )
+
+
+def load_verify_code_record(email: str):
+    """优先从 Redis 读取验证码，未命中时退回数据库兜底。"""
+    email = normalize_verify_email(email)
+    cached = cache_get_json(verify_code_cache_key(email))
+    if cached:
+        expires_at = cached.get("expires_at")
+        code = cached.get("code")
+        if expires_at and code:
+            try:
+                return {
+                    "email": email,
+                    "code": code,
+                    "expires_at": datetime.fromisoformat(expires_at),
+                }
+            except ValueError:
+                pass
+
+    vc = VerifyCode.query.filter_by(email=email).first()
+    if not vc:
+        return None
+
+    if vc.expires_at > now():
+        write_verify_code_cache(email, vc.code, vc.expires_at)
+    return {"email": email, "code": vc.code, "expires_at": vc.expires_at}
+
+
+def clear_verify_code_record(email: str):
+    """统一清理 Redis 和数据库中的验证码记录。"""
+    email = normalize_verify_email(email)
+    cache_delete(
+        verify_code_cache_key(email),
+        verify_code_cooldown_cache_key(email),
+    )
+    VerifyCode.query.filter_by(email=email).delete()
 
 
 # 把教师邀请码模型转换成前端可直接消费的字段结构。
@@ -158,31 +231,44 @@ def send_email_code(email: str, code: str, scene_name: str = "账号注册", val
         return False
 
 
-def upsert_verify_code(email: str, expire_minutes: int):
-    """为邮箱生成并覆盖保存最新验证码。"""
-    # 统一验证码写入：覆盖旧验证码，确保一个邮箱同一时间只保留一条记录
+def upsert_verify_code(email: str, expire_minutes: int, cooldown_seconds: int = 0):
+    """统一写入验证码到 Redis，并保留数据库记录作为兜底。"""
+    email = normalize_verify_email(email)
     code = str(random.randint(100000, 999999))
     expires = now() + timedelta(minutes=expire_minutes)
+    write_verify_code_cache(email, code, expires, cooldown_seconds=cooldown_seconds)
     VerifyCode.query.filter_by(email=email).delete()
     db.session.add(VerifyCode(email=email, code=code, expires_at=expires))
     db.session.commit()
     return code, expires
 
 
-def password_code_cooldown_left_seconds(vc: VerifyCode | None):
-    """计算密码验证码发送冷却剩余秒数。"""
-    # 密码验证码固定 2 分钟有效，因此可用“剩余有效秒数 - 60”得到冷却剩余秒数
+def password_code_cooldown_left_seconds(email: str):
+    """优先读取 Redis 冷却剩余时间，数据库仅作为兼容兜底。"""
+    email = normalize_verify_email(email)
+    cooldown_left = cache_ttl(verify_code_cooldown_cache_key(email))
+    if cooldown_left > 0:
+        return cooldown_left
+
+    vc = VerifyCode.query.filter_by(email=email).first()
     if not vc:
         return 0
     remaining = int((vc.expires_at - now()).total_seconds())
-    return max(0, remaining - PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS)
+    fallback_left = max(0, remaining - PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS)
+    if fallback_left > 0:
+        cache_set_json(
+            verify_code_cooldown_cache_key(email),
+            {"email": email, "active": True},
+            fallback_left,
+        )
+    return fallback_left
 
 # [前端对应]: 登录注册弹窗 (AuthModal.vue) -> 点击“发送验证码”
 # [业务逻辑]: 生成并保存邮箱验证码，写入过期时间并尝试发送邮件
 @auth_bp.post("/send-code")
 def send_code():
     body = request.get_json(silent=True) or {}
-    email = (body.get("email") or "").strip()
+    email = normalize_verify_email(body.get("email") or "")
     if "@" not in email:
         return err("请输入有效的邮箱地址")
         
@@ -202,7 +288,7 @@ def send_code():
 def register():
     body = request.get_json(silent=True) or {}
     username = (body.get("username") or "").strip()
-    email = (body.get("email") or "").strip()
+    email = normalize_verify_email(body.get("email") or "")
     password = body.get("password") or ""
     role = (body.get("role") or "student").strip().lower()
     verify_code = (body.get("verify_code") or "").strip()
@@ -238,10 +324,10 @@ def register():
             return err("无效或已过期的教师邀请码")
 
     # 查验验证码
-    vc = VerifyCode.query.filter_by(email=email).first()
-    if not vc or vc.code != verify_code:
+    vc = load_verify_code_record(email)
+    if not vc or vc["code"] != verify_code:
         return err("验证码错误")
-    if vc.expires_at < now():
+    if vc["expires_at"] < now():
         return err("验证码已过期，请重新获取")
 
     if User.query.filter_by(username=username).first():
@@ -262,7 +348,7 @@ def register():
     db.session.flush()
     
     # 标记验证码和邀请码已使用，并与用户创建保持同一笔提交。
-    db.session.delete(vc)
+    clear_verify_code_record(email)
     if role == "teacher" and invite_record:
         invite_record.is_used = True
         invite_record.used_by_id = u.id
@@ -342,7 +428,7 @@ def login():
 @auth_bp.post("/send-reset-code")
 def send_reset_code():
     body = request.get_json(silent=True) or {}
-    email = (body.get("email") or "").strip()
+    email = normalize_verify_email(body.get("email") or "")
     if "@" not in email:
         return err("请输入有效的邮箱地址")
 
@@ -350,12 +436,15 @@ def send_reset_code():
     if not user:
         return err("该邮箱未注册账号", status=404)
 
-    vc = VerifyCode.query.filter_by(email=email).first()
-    cooldown_left = password_code_cooldown_left_seconds(vc)
+    cooldown_left = password_code_cooldown_left_seconds(email)
     if cooldown_left > 0:
         return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
 
-    code, _ = upsert_verify_code(email, expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES)
+    code, _ = upsert_verify_code(
+        email,
+        expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
+        cooldown_seconds=PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS,
+    )
     if send_email_code(
         email,
         code,
@@ -374,7 +463,7 @@ def send_reset_code():
 @auth_bp.post("/reset-password")
 def reset_password():
     body = request.get_json(silent=True) or {}
-    email = (body.get("email") or "").strip()
+    email = normalize_verify_email(body.get("email") or "")
     verify_code = (body.get("verify_code") or "").strip()
     new_password = body.get("new_password") or ""
 
@@ -389,15 +478,15 @@ def reset_password():
     if not user:
         return err("该邮箱未注册账号", status=404)
 
-    vc = VerifyCode.query.filter_by(email=email).first()
-    if not vc or vc.code != verify_code:
+    vc = load_verify_code_record(email)
+    if not vc or vc["code"] != verify_code:
         return err("验证码错误")
-    if vc.expires_at < now():
+    if vc["expires_at"] < now():
         return err("验证码已过期，请重新获取")
 
     user.password_hash = generate_password_hash(new_password)
     user.updated_at = now()
-    db.session.delete(vc)
+    clear_verify_code_record(email)
     db.session.commit()
     return ok(None, "密码重置成功，请使用新密码登录")
 
@@ -476,12 +565,15 @@ def send_my_password_code():
     if not u:
         return err("请求未授权", status=401)
 
-    vc = VerifyCode.query.filter_by(email=u.email).first()
-    cooldown_left = password_code_cooldown_left_seconds(vc)
+    cooldown_left = password_code_cooldown_left_seconds(u.email)
     if cooldown_left > 0:
         return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
 
-    code, _ = upsert_verify_code(u.email, expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES)
+    code, _ = upsert_verify_code(
+        u.email,
+        expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
+        cooldown_seconds=PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS,
+    )
     if send_email_code(
         u.email,
         code,
@@ -513,15 +605,15 @@ def change_my_password():
     if len(new_password) < 6:
         return err("新密码至少 6 位")
 
-    vc = VerifyCode.query.filter_by(email=u.email).first()
-    if not vc or vc.code != verify_code:
+    vc = load_verify_code_record(u.email)
+    if not vc or vc["code"] != verify_code:
         return err("验证码错误")
-    if vc.expires_at < now():
+    if vc["expires_at"] < now():
         return err("验证码已过期，请重新获取")
 
     u.password_hash = generate_password_hash(new_password)
     u.updated_at = now()
-    db.session.delete(vc)
+    clear_verify_code_record(u.email)
     db.session.commit()
     return ok(None, "密码修改成功")
 

@@ -50,3 +50,14 @@ def cache_delete_pattern(pattern: str):
         return extensions.redis_client.delete(*keys)
     except Exception:
         return 0
+
+
+def cache_ttl(key: str):
+    """读取缓存剩余秒数，Redis 不可用或键不存在时统一返回 0。"""
+    if extensions.redis_client is None:
+        return 0
+    try:
+        ttl = extensions.redis_client.ttl(key)
+        return ttl if ttl and ttl > 0 else 0
+    except Exception:
+        return 0
