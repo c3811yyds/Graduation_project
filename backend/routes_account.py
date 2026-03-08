@@ -100,6 +100,11 @@ def verify_code_cooldown_cache_key(email: str):
     return f"verify:cooldown:{normalize_verify_email(email)}"
 
 
+def build_verify_code_payload(expire_minutes: int):
+    """先生成验证码和过期时间，邮件发送成功后再决定是否落库。"""
+    return str(random.randint(100000, 999999)), now() + timedelta(minutes=expire_minutes)
+
+
 def write_verify_code_cache(
     email: str,
     code: str,
@@ -194,6 +199,26 @@ PASSWORD_VERIFY_CODE_EXPIRE_MINUTES = 2
 PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS = 60
 
 
+def mail_console_fallback_enabled():
+    """读取是否允许邮件发送失败时退化为控制台打印验证码。"""
+    value = (os.getenv("MAIL_CONSOLE_FALLBACK") or "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def explain_mail_send_error(exc: Exception):
+    """把底层邮件异常归一成用户可理解的失败提示。"""
+    message = str(exc).lower()
+    if (
+        "recipient address rejected" in message
+        or "bad recipient" in message
+        or "invalid address" in message
+        or "user unknown" in message
+        or "mailbox unavailable" in message
+    ):
+        return "验证码发送失败，邮箱地址可能有误，请检查后重试"
+    return "验证码发送失败，请稍后重试；如多次失败请联系管理员"
+
+
 def send_email_code(email: str, code: str, scene_name: str = "账号注册", valid_minutes: int = 5):
     """发送邮箱验证码；未配置邮件服务时退化为控制台打印。"""
     mail_server = os.getenv("MAIL_SERVER")
@@ -206,8 +231,10 @@ def send_email_code(email: str, code: str, scene_name: str = "账号注册", val
     print(f"==================================================")
 
     if not all([mail_server, mail_port, mail_user, mail_pass]):
-        print("注意: 暂未配置完整的 MAIL 相关环境变量(MAIL_SERVER等)，将只在控制台打印验证码")
-        return True
+        if mail_console_fallback_enabled():
+            print("注意: 暂未配置完整的 MAIL 相关环境变量(MAIL_SERVER等)，当前按开发模式仅在控制台打印验证码")
+            return True, None
+        return False, "当前系统未完成邮件服务配置，请联系管理员"
 
     try:
         from email.utils import formataddr
@@ -225,22 +252,35 @@ def send_email_code(email: str, code: str, scene_name: str = "账号注册", val
         server.login(mail_user, mail_pass)
         server.sendmail(mail_user, [email], msg.as_string())
         server.quit()
-        return True
+        return True, None
     except Exception as e:
         print("发送邮件失败:", e)
-        return False
+        return False, explain_mail_send_error(e)
 
 
 def upsert_verify_code(email: str, expire_minutes: int, cooldown_seconds: int = 0):
     """统一写入验证码到 Redis，并保留数据库记录作为兜底。"""
     email = normalize_verify_email(email)
-    code = str(random.randint(100000, 999999))
-    expires = now() + timedelta(minutes=expire_minutes)
+    code, expires = build_verify_code_payload(expire_minutes)
     write_verify_code_cache(email, code, expires, cooldown_seconds=cooldown_seconds)
     VerifyCode.query.filter_by(email=email).delete()
     db.session.add(VerifyCode(email=email, code=code, expires_at=expires))
     db.session.commit()
     return code, expires
+
+
+def save_verify_code_record(
+    email: str,
+    code: str,
+    expires_at: datetime,
+    cooldown_seconds: int = 0,
+):
+    """在邮件发送成功后，再把验证码写入 Redis 和数据库。"""
+    email = normalize_verify_email(email)
+    write_verify_code_cache(email, code, expires_at, cooldown_seconds=cooldown_seconds)
+    VerifyCode.query.filter_by(email=email).delete()
+    db.session.add(VerifyCode(email=email, code=code, expires_at=expires_at))
+    db.session.commit()
 
 
 def password_code_cooldown_left_seconds(email: str):
@@ -275,12 +315,13 @@ def send_code():
     if User.query.filter_by(email=email).first():
         return err("该邮箱已注册账号，请直接登录", status=409)
         
-    code, _ = upsert_verify_code(email, expire_minutes=5)
-    
-    if send_email_code(email, code, scene_name="账号注册", valid_minutes=5):
+    code, expires = build_verify_code_payload(5)
+    sent, reason = send_email_code(email, code, scene_name="账号注册", valid_minutes=5)
+    if sent:
+        save_verify_code_record(email, code, expires)
         return ok(None, "验证码已发送，请注意查收")
     else:
-        return err("验证码发送失败，请检查系统邮件配置", status=500)
+        return err(reason or "验证码发送失败，请检查系统邮件配置", status=500)
 
 # [前端对应]: 登录注册弹窗 (AuthModal.vue) -> "注册" 按钮/表单
 # [业务逻辑]: 处理新用户注册并入库
@@ -440,22 +481,25 @@ def send_reset_code():
     if cooldown_left > 0:
         return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
 
-    code, _ = upsert_verify_code(
-        email,
-        expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
-        cooldown_seconds=PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS,
-    )
-    if send_email_code(
+    code, expires = build_verify_code_payload(PASSWORD_VERIFY_CODE_EXPIRE_MINUTES)
+    sent, reason = send_email_code(
         email,
         code,
         scene_name="找回密码",
         valid_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
-    ):
+    )
+    if sent:
+        save_verify_code_record(
+            email,
+            code,
+            expires,
+            cooldown_seconds=PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS,
+        )
         return ok(
             {"expires_seconds": PASSWORD_VERIFY_CODE_EXPIRE_MINUTES * 60, "cooldown_seconds": PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS},
             "验证码已发送，请注意查收",
         )
-    return err("验证码发送失败，请检查系统邮件配置", status=500)
+    return err(reason or "验证码发送失败，请检查系统邮件配置", status=500)
 
 
 # [前端对应]: 登录弹窗 (AuthModal.vue) -> 忘记密码页提交“验证码 + 新密码”
@@ -569,22 +613,25 @@ def send_my_password_code():
     if cooldown_left > 0:
         return err(f"验证码发送过于频繁，请{cooldown_left}秒后再试", status=429)
 
-    code, _ = upsert_verify_code(
-        u.email,
-        expire_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
-        cooldown_seconds=PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS,
-    )
-    if send_email_code(
+    code, expires = build_verify_code_payload(PASSWORD_VERIFY_CODE_EXPIRE_MINUTES)
+    sent, reason = send_email_code(
         u.email,
         code,
         scene_name="修改密码",
         valid_minutes=PASSWORD_VERIFY_CODE_EXPIRE_MINUTES,
-    ):
+    )
+    if sent:
+        save_verify_code_record(
+            u.email,
+            code,
+            expires,
+            cooldown_seconds=PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS,
+        )
         return ok(
             {"expires_seconds": PASSWORD_VERIFY_CODE_EXPIRE_MINUTES * 60, "cooldown_seconds": PASSWORD_VERIFY_CODE_COOLDOWN_SECONDS},
             "验证码已发送，请注意查收",
         )
-    return err("验证码发送失败，请检查系统邮件配置", status=500)
+    return err(reason or "验证码发送失败，请检查系统邮件配置", status=500)
 
 
 # [前端对应]: 个人中心 (ProfileView.vue) -> 填写验证码后提交新密码
