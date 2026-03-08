@@ -1,0 +1,362 @@
+GraduationProject 压力测试与性能优化方案
+
+一、目标定位
+
+  当前项目架构是：
+  Nginx -> Gunicorn -> Flask -> MySQL -> Docker Compose 单机部署
+
+  这套架构可以做到：
+  1. 中小规模并发优化
+  2. 单机环境下较好的可恢复性
+  3. 可重复压测与持续调优
+
+  这套架构暂时做不到：
+  1. 真正意义上的高可用集群
+  2. 多实例自动负载均衡
+  3. 数据库主从或分布式容灾
+
+  因此本阶段的压测目标应定义为：
+  1. 提升单机吞吐能力
+  2. 降低接口响应时间
+  3. 降低高并发下的报错率
+  4. 找出最明显的热点瓶颈
+
+
+二、建议压测目标
+
+  建议先以这组指标作为第一阶段目标：
+
+  1. 首页课程列表接口 `/api/courses`
+    - 并发：50 到 100
+    - 错误率：小于 1%
+    - p95 响应时间：小于 300ms
+
+  2. 用户数据总览接口 `/api/users/analytics`
+    - 并发：20 到 50
+    - 错误率：小于 1%
+    - p95 响应时间：小于 500ms
+
+  3. 管理员用户列表接口 `/api/admin/users`
+    - 并发：20 到 50
+    - 错误率：小于 1%
+    - p95 响应时间：小于 500ms
+
+  4. 登录接口 `/api/auth/login`
+    - 并发：20 到 50
+    - 错误率：小于 1%
+    - p95 响应时间：小于 500ms
+
+  5. 文件下载、视频播放
+    - 单独压测
+    - 不和普通 JSON 接口混测
+
+  6. AI 助教接口
+    - 最后单独测
+    - 因为涉及外部模型调用，不能和普通接口一个标准
+
+
+三、优先压测的接口
+
+  第一轮基线压测建议只测这几类：
+
+  1. 无鉴权读接口
+    - `/api/health`
+    - `/api/courses`
+
+  2. 登录接口
+    - `/api/auth/login`
+
+  3. 登录后读接口
+    - `/api/users/analytics`
+    - `/api/courses/<id>/contents`
+    - `/api/admin/users`
+
+  第一轮不要马上测：
+  1. AI SSE 流式接口
+  2. 文件上传
+  3. 视频流大文件
+  4. 邮件验证码发送
+
+  原因：
+  这些功能依赖外部服务或大文件 IO，先测只会放大噪声，无法准确定位后端热点。
+
+
+四、当前项目最可能的瓶颈
+
+  结合当前代码结构，主要瓶颈大概率在下面几类：
+
+  1. Gunicorn 配置固定
+    - 当前后端容器固定 4 个 worker
+    - 线程数、超时、keepalive 都没有做成可调
+
+  2. 数据库连接池配置偏保守
+    - 目前只有基础连接参数
+    - 缺少 pool_size、max_overflow、pool_timeout、pool_recycle 这类调优项
+
+  3. 热点接口存在 N+1 查询风险
+    - `/api/courses`
+    - `/api/users/analytics`
+    - `/api/admin/analytics`
+    - 这类“列表 + 统计”接口最容易在并发下拖垮性能
+
+  4. 单机 Compose 不是严格意义上的高可用
+    - `restart: always` 只是自动拉起
+    - 不等于真正 HA
+
+
+五、推荐压测工具
+
+  本项目推荐优先用 k6。
+
+  原因：
+  1. 脚本简单
+  2. 输出结果直观
+  3. 适合接口压测
+  4. 不要求额外改后端代码
+
+  为了避免本机安装差异，推荐直接用 Docker 版 k6。
+
+  前提：
+  1. 本地已安装 Docker
+  2. 本地后端接口可以正常访问
+
+
+六、第一轮基线压测步骤
+
+  （1）启动项目
+
+    本地开发模式：
+      后端启动
+      cd backend
+      python app.py
+
+      前端启动
+      cd frontend
+      npm run dev
+
+    或者 Docker 模式：
+      docker compose up -d --build
+
+  （2）准备测试账号
+
+    建议至少准备：
+      一个学生账号
+      一个教师账号
+      一个管理员账号
+
+    用于登录后接口测试。
+
+  （3）先手工验证接口可用
+
+    先在浏览器或接口工具里确认以下接口能正常返回：
+      GET /api/health
+      GET /api/courses
+      POST /api/auth/login
+      GET /api/users/analytics
+      GET /api/admin/users
+
+  （4）创建 k6 压测脚本
+
+    在项目根目录新建一个脚本，例如：
+      stress_baseline.js
+
+    第一轮最小脚本示例：
+
+    import http from 'k6/http';
+    import { check, sleep } from 'k6';
+
+    export const options = {
+      vus: 50,
+      duration: '30s',
+      thresholds: {
+        http_req_failed: ['rate<0.01'],
+        http_req_duration: ['p(95)<300'],
+      },
+    };
+
+    export default function () {
+      const res = http.get('http://127.0.0.1:5000/api/courses');
+      check(res, {
+        'status is 200': (r) => r.status === 200,
+      });
+      sleep(1);
+    }
+
+  （5）运行基线压测
+
+    在项目根目录执行：
+
+      docker run --rm -i grafana/k6 run - < stress_baseline.js
+
+    说明：
+    1. 如果后端跑在 Docker 容器内，接口地址改成你实际可访问地址
+    2. Windows 本地如果 `127.0.0.1` 不通，就改成实际端口地址
+
+  （6）记录结果
+
+    重点记录：
+      平均响应时间
+      p95 响应时间
+      请求总数
+      请求失败率
+      每秒请求数
+
+
+七、登录后接口压测步骤
+
+  登录后接口不能直接压，要先拿 token。
+
+  方式一，先手工登录拿 token
+
+    登录接口：
+      POST /api/auth/login
+
+    登录成功后，把 token 填进 k6 脚本 header。
+
+  示例：
+
+    import http from 'k6/http';
+    import { check } from 'k6';
+
+    const token = '这里填你手工拿到的 Bearer Token';
+
+    export const options = {
+      vus: 20,
+      duration: '30s',
+      thresholds: {
+        http_req_failed: ['rate<0.01'],
+        http_req_duration: ['p(95)<500'],
+      },
+    };
+
+    export default function () {
+      const res = http.get('http://127.0.0.1:5000/api/users/analytics', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      check(res, {
+        'status is 200': (r) => r.status === 200,
+      });
+    }
+
+  先测：
+    学生 `/api/users/analytics`
+    管理员 `/api/admin/users`
+
+
+八、推荐调优顺序
+
+  不建议一开始就乱改一堆配置。
+
+  正确顺序：
+
+  （1）先做基线压测
+    明确到底哪类接口慢
+
+  （2）先优化热点 SQL
+    优先处理列表接口和总览接口中的 N+1 查询
+
+  （3）再调 Gunicorn
+    建议把下面参数做成可配置：
+      worker 数
+      threads 数
+      timeout
+      keepalive
+
+  （4）再调数据库连接池
+    建议加入：
+      DB_POOL_SIZE
+      DB_MAX_OVERFLOW
+      DB_POOL_TIMEOUT
+      DB_POOL_RECYCLE
+
+  （5）第二轮再压测
+    对比优化前后的：
+      p95
+      错误率
+      吞吐量
+
+
+九、建议的性能优化方向
+
+  结合当前项目，优先级建议如下：
+
+  1. 第一优先级：热点查询优化
+    - 把循环查库改成聚合查询
+    - 优先改课程列表、学生总览、管理员总览
+
+  2. 第二优先级：Gunicorn 可配置化
+    - 让 worker、thread、timeout 变成环境变量
+
+  3. 第三优先级：连接池可配置化
+    - 避免并发上来后数据库连接拿不到
+
+  4. 第四优先级：日志和监控
+    - 接口耗时日志
+    - MySQL 慢查询日志
+
+  5. 第五优先级：缓存
+    - 如果课程列表、总览访问量很高，再考虑 Redis
+
+
+十、当前项目能讲的“高性能/高可用”边界
+
+  你现在可以讲：
+
+  1. 采用 Nginx + Gunicorn + Flask 的前后端分离部署结构
+  2. 使用 Docker Compose 做容器化部署
+  3. 具备数据库数据卷持久化与 SQL 快照备份能力
+  4. 具备健康检查接口 `/api/health`
+  5. 具备版本号管理和部署追踪能力
+  6. 可以通过压测和参数调优提升单机吞吐能力
+
+  你现在不要讲：
+
+  1. 多机房高可用
+  2. 集群级负载均衡
+  3. 数据库主从高可用
+  4. 分布式弹性扩缩容
+
+  更准确的说法应该是：
+
+    当前系统已具备单机部署下的可恢复性和并发优化能力，
+    但严格意义上的分布式高可用架构不属于本阶段实现范围。
+
+
+十一、推荐的下一步执行方案
+
+  第一阶段：
+  1. 先写 3 个 k6 脚本
+    - health/courses
+    - student analytics
+    - admin users
+
+  2. 跑第一轮基线压测
+
+  3. 记录结果
+
+  第二阶段：
+  1. 优化热点接口 SQL
+  2. 把 Gunicorn 和连接池参数做成环境变量
+  3. 再跑第二轮压测
+
+  第三阶段：
+  1. 对比两轮结果
+  2. 写进 README 或答辩材料
+  3. 提炼成“性能优化成果”
+
+
+十二、最务实的结论
+
+  你现在最应该做的不是直接追求“常见大网站级别高并发”，
+  而是先把当前单机系统的性能基线测清楚，再做针对性优化。
+
+  对你这个项目来说，最有价值的路线是：
+    可重复压测
+    热点接口去 N+1
+    Gunicorn 可调
+    数据库连接池可调
+    再做前后对比
+
+  这样最真实，也最能在答辩里讲清楚。

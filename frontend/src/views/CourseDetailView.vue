@@ -233,7 +233,30 @@
 
       <div v-else-if="activeDetailTab === 'progress' && isTeacherOwner" class="detail-tab-body">
         <h2>学生学习进度概况</h2>
-        <table v-if="enrolledStudentsData.length" class="progress-table">
+
+        <div v-if="enrolledStudentsData.length" class="progress-toolbar">
+          <input
+            v-model="studentProgressKeyword"
+            class="progress-search-input"
+            type="text"
+            placeholder="搜索学生姓名或账号"
+          />
+
+          <select v-model="studentProgressSort" class="progress-select">
+            <option value="name">默认名称排序</option>
+            <option value="progress_desc">按进度从高到低</option>
+            <option value="progress_asc">按进度从低到高</option>
+          </select>
+
+          <select v-model.number="studentProgressPageSize" class="progress-select">
+            <option :value="5">每页 5 行</option>
+            <option :value="10">每页 10 行</option>
+            <option :value="20">每页 20 行</option>
+            <option :value="30">每页 30 行</option>
+          </select>
+        </div>
+
+        <table v-if="filteredStudentsProgress.length" class="progress-table">
           <thead>
             <tr>
               <th>学生姓名</th>
@@ -243,7 +266,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="st in enrolledStudentsData" :key="st.id">
+            <tr v-for="st in pagedStudentsProgress" :key="st.id">
               <td>{{ st.real_name || st.username }}</td>
               <td>{{ st.completed }} / {{ st.total }}</td>
               <td style="font-weight: 600;">{{ st.progress }}%</td>
@@ -255,6 +278,18 @@
             </tr>
           </tbody>
         </table>
+
+        <div v-if="filteredStudentsProgress.length" class="progress-pagination">
+          <span class="muted">
+            共 {{ filteredStudentsProgress.length }} 名学生，第 {{ studentProgressPage }} / {{ studentProgressTotalPages }} 页
+          </span>
+          <div class="progress-pagination-actions">
+            <button class="btn btn-secondary" :disabled="studentProgressPage <= 1" @click="studentProgressPage--">上一页</button>
+            <button class="btn btn-secondary" :disabled="studentProgressPage >= studentProgressTotalPages" @click="studentProgressPage++">下一页</button>
+          </div>
+        </div>
+
+        <p v-else-if="enrolledStudentsData.length" class="muted">没有匹配的学生</p>
         <p v-else class="muted">暂无学生选修</p>
       </div>
 
@@ -388,7 +423,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import http from "../api/http";
 
@@ -420,6 +455,12 @@ const uploadTitle = ref("");
 const currentPlayingContent = ref(null);
 const currentPlayingUrl = ref("");
 const activeDetailTab = ref("contents");
+
+// 教师端学生进度表的筛选、排序、分页状态。
+const studentProgressKeyword = ref("");
+const studentProgressSort = ref("name");
+const studentProgressPageSize = ref(10);
+const studentProgressPage = ref(1);
 
 const isStudent = computed(() => me.value?.role === "student");
 const isTeacher = computed(() => me.value?.role === "teacher");
@@ -467,6 +508,62 @@ const currentPreviewKind = computed(() => {
     return "office";
   }
   return "unsupported";
+});
+
+// 按关键词和排序规则整理教师端学生进度列表。
+const filteredStudentsProgress = computed(() => {
+  const keyword = studentProgressKeyword.value.trim().toLowerCase();
+  let rows = [...enrolledStudentsData.value];
+
+  if (keyword) {
+    rows = rows.filter((student) => {
+      const displayName = (student.real_name || student.username || "").toLowerCase();
+      const username = (student.username || "").toLowerCase();
+      return displayName.includes(keyword) || username.includes(keyword);
+    });
+  }
+
+  if (studentProgressSort.value === "progress_desc") {
+    rows.sort((a, b) => {
+      if (b.progress !== a.progress) return b.progress - a.progress;
+      return (a.real_name || a.username || "").localeCompare(b.real_name || b.username || "");
+    });
+  } else if (studentProgressSort.value === "progress_asc") {
+    rows.sort((a, b) => {
+      if (a.progress !== b.progress) return a.progress - b.progress;
+      return (a.real_name || a.username || "").localeCompare(b.real_name || b.username || "");
+    });
+  } else {
+    rows.sort((a, b) =>
+      (a.real_name || a.username || "").localeCompare(b.real_name || b.username || "")
+    );
+  }
+
+  return rows;
+});
+
+// 根据每页行数计算教师端学生进度总页数。
+const studentProgressTotalPages = computed(() => {
+  return Math.max(1, Math.ceil(filteredStudentsProgress.value.length / studentProgressPageSize.value));
+});
+
+// 只截取当前页需要展示的学生进度行。
+const pagedStudentsProgress = computed(() => {
+  const start = (studentProgressPage.value - 1) * studentProgressPageSize.value;
+  const end = start + studentProgressPageSize.value;
+  return filteredStudentsProgress.value.slice(start, end);
+});
+
+// 教师修改筛选条件后，分页回到第一页，避免停留在空页。
+watch([studentProgressKeyword, studentProgressSort, studentProgressPageSize], () => {
+  studentProgressPage.value = 1;
+});
+
+// 结果数量变化时，收敛当前页码，避免超过最后一页。
+watch(filteredStudentsProgress, () => {
+  if (studentProgressPage.value > studentProgressTotalPages.value) {
+    studentProgressPage.value = studentProgressTotalPages.value;
+  }
 });
 
 // 返回课程大厅首页。
@@ -582,6 +679,7 @@ async function loadLearningData() {
     studentProgressData.value = results[3].data.data || { progress: 0, completed: 0, total: 0 };
   } else if (isTeacherOwner.value && results[3]) {
     enrolledStudentsData.value = results[3].data.data?.students || [];
+    studentProgressPage.value = 1;
   }
 }
 
@@ -1191,6 +1289,40 @@ async function deleteContent(contentId) {
   border-collapse: collapse;
   margin-top: 12px;
   font-size: 14px;
+}
+.progress-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+.progress-search-input,
+.progress-select {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--text);
+}
+.progress-search-input {
+  flex: 1 1 240px;
+}
+.progress-select {
+  flex: 0 0 auto;
+}
+.progress-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.progress-pagination-actions {
+  display: flex;
+  gap: 8px;
 }
 .progress-table th, .progress-table td {
   border: 1px solid var(--line);
