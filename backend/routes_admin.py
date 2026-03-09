@@ -6,7 +6,7 @@ import uuid
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from werkzeug.security import generate_password_hash
 
 from extensions import db
@@ -214,20 +214,32 @@ def admin_analytics():
     if cached is not None:
         return ok(cached)
 
+    # 管理员总览优先走聚合查询，减少按课程循环统计数据库。
     courses = Course.query.filter_by(status="published").all()
-    course_names = []
-    course_ids = []
+    course_names = [course.title for course in courses]
+    course_ids = [course.id for course in courses]
     enroll_counts = []
     review_averages = []
+
+    enroll_totals = {}
+    review_avg_map = {}
+    if course_ids:
+        enroll_totals = dict(
+            db.session.query(Enrollment.course_id, func.count(Enrollment.id))
+            .filter(Enrollment.course_id.in_(course_ids))
+            .group_by(Enrollment.course_id)
+            .all()
+        )
+        review_avg_map = dict(
+            db.session.query(Review.course_id, func.avg(Review.rating))
+            .filter(Review.course_id.in_(course_ids))
+            .group_by(Review.course_id)
+            .all()
+        )
+
     for course in courses:
-        course_names.append(course.title)
-        course_ids.append(course.id)
-
-        enroll_count = Enrollment.query.filter_by(course_id=course.id).count()
-        enroll_counts.append(enroll_count)
-
-        reviews = Review.query.filter_by(course_id=course.id).all()
-        avg_rating = sum(review.rating for review in reviews) / len(reviews) if reviews else 0
+        enroll_counts.append(int(enroll_totals.get(course.id, 0) or 0))
+        avg_rating = float(review_avg_map.get(course.id, 0) or 0)
         review_averages.append(round(avg_rating, 1))
 
     data = {

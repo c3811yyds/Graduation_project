@@ -8,6 +8,7 @@ import uuid
 from flask import Blueprint, current_app, jsonify, request, send_file
 from flask_jwt_extended import decode_token, get_jwt_identity, jwt_required
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from sqlalchemy import func
 from werkzeug.utils import secure_filename
 
 from cache_utils import cache_delete, cache_delete_pattern, cache_get_json, cache_set_json
@@ -225,14 +226,80 @@ def invalidate_admin_analytics_cache():
     cache_delete("admin:analytics")
 
 
-def serialize_course(c: Course, u: User | None = None):
+def build_teacher_name_map(teacher_ids: list[int]):
+    # 批量读取教师名称，避免课程列表逐条查询用户表。
+    if not teacher_ids:
+        return {}
+    rows = User.query.filter(User.id.in_(teacher_ids)).all()
+    return {row.id: row.username for row in rows}
+
+
+def build_course_review_stats(course_ids: list[int]):
+    # 批量统计评分和评价数，避免每门课单独查询 reviews。
+    if not course_ids:
+        return {}
+    rows = (
+        db.session.query(
+            Review.course_id,
+            func.avg(Review.rating),
+            func.count(Review.id),
+        )
+        .filter(Review.course_id.in_(course_ids))
+        .group_by(Review.course_id)
+        .all()
+    )
+    return {
+        course_id: {
+            "rating": round(float(avg_rating or 0), 1),
+            "review_count": int(review_count or 0),
+        }
+        for course_id, avg_rating, review_count in rows
+    }
+
+
+def build_student_enrollment_status_map(course_ids: list[int], student_id: int | None):
+    # 批量读取学生对多门课程的最新选课状态，保持与详情页口径一致。
+    if not course_ids or not student_id:
+        return {}
+    rows = (
+        db.session.query(Enrollment.course_id, Enrollment.status)
+        .filter(
+            Enrollment.student_id == student_id,
+            Enrollment.course_id.in_(course_ids),
+        )
+        .order_by(Enrollment.course_id.asc(), Enrollment.id.desc())
+        .all()
+    )
+    status_map = {}
+    for course_id, status in rows:
+        if course_id not in status_map:
+            status_map[course_id] = status
+    return status_map
+
+
+def serialize_course(
+    c: Course,
+    u: User | None = None,
+    *,
+    teacher_names: dict[int, str] | None = None,
+    review_stats: dict[int, dict[str, float | int]] | None = None,
+    student_statuses: dict[int, str | None] | None = None,
+):
     """序列化课程信息。"""
     # 统计课程平均评分与评价数量。
-    reviews = Review.query.filter_by(course_id=c.id).all()
-    avg_rating = sum([r.rating for r in reviews]) / len(reviews) if reviews else 0.0
+    stats = review_stats.get(c.id) if review_stats else None
+    if stats is not None:
+        avg_rating = float(stats.get("rating", 0) or 0)
+        review_count = int(stats.get("review_count", 0) or 0)
+    else:
+        reviews = Review.query.filter_by(course_id=c.id).all()
+        avg_rating = sum(r.rating for r in reviews) / len(reviews) if reviews else 0.0
+        review_count = len(reviews)
 
-    teacher = User.query.get(c.teacher_id)
-    t_name = teacher.username if teacher else "未知"
+    t_name = teacher_names.get(c.teacher_id) if teacher_names else None
+    if not t_name:
+        teacher = User.query.get(c.teacher_id)
+        t_name = teacher.username if teacher else "未知"
 
     data = {
         "id": c.id,
@@ -244,12 +311,15 @@ def serialize_course(c: Course, u: User | None = None):
         "created_at": c.created_at.isoformat() if c.created_at else None,
         "updated_at": c.updated_at.isoformat() if c.updated_at else None,
         "rating": round(avg_rating, 1),
-        "review_count": len(reviews),
+        "review_count": review_count,
         "is_enrolled": False,
         "enrollment_status": None,
     }
     if u and is_student(u):
-        st = enrollment_status(c.id, u.id)
+        if student_statuses is not None:
+            st = student_statuses.get(c.id)
+        else:
+            st = enrollment_status(c.id, u.id)
         data["enrollment_status"] = st
         data["is_enrolled"] = st == "enrolled"
     return data
@@ -341,7 +411,23 @@ def list_courses():
         query = query.filter_by(status="published")
 
     courses = query.order_by(Course.id.desc()).all()
-    data = [serialize_course(c, u) for c in courses]
+    course_ids = [course.id for course in courses]
+    teacher_names = build_teacher_name_map(list({course.teacher_id for course in courses}))
+    review_stats = build_course_review_stats(course_ids)
+    student_statuses = None
+    if u and is_student(u):
+        # 列表场景按课程批量读取学生选课状态，避免重复查 enrollment。
+        student_statuses = build_student_enrollment_status_map(course_ids, u.id)
+    data = [
+        serialize_course(
+            c,
+            u,
+            teacher_names=teacher_names,
+            review_stats=review_stats,
+            student_statuses=student_statuses,
+        )
+        for c in courses
+    ]
     cache_set_json(cache_key, data, ttl_seconds=60)
     return ok(data)
 

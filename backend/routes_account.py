@@ -11,7 +11,7 @@ from email.header import Header
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from cache_utils import (
@@ -797,38 +797,52 @@ def user_analytics():
         return ok(cached)
 
     if is_student(u):
-        # 学生端：按课程展示进度
-        enrollments = Enrollment.query.filter_by(student_id=u.id).all()
-        course_names = []
-        course_ids = []
-        progress_data = [] # 百分比
+        # 学生端优先走聚合查询，减少按课程循环查库。
+        enrollment_rows = (
+            db.session.query(Enrollment.course_id, Course.title)
+            .join(Course, Course.id == Enrollment.course_id)
+            .filter(
+                Enrollment.student_id == u.id,
+                Enrollment.status == "enrolled",
+                Course.status == "published",
+            )
+            .order_by(Enrollment.id.asc())
+            .all()
+        )
+        course_names = [row.title for row in enrollment_rows]
+        course_ids = [row.course_id for row in enrollment_rows]
+        progress_data = []
         completed_counts = []
-        
-        for en in enrollments:
-            c = course_by_id(en.course_id)
-            if c and c.status == "published":
-                course_names.append(c.title)
-                course_ids.append(c.id)
-                contents = Content.query.filter_by(course_id=c.id).all()
-                total = len(contents)
-                if total > 0:
-                    c_ids = [ct.id for ct in contents]
-                    # 数据总览按不同课件去重统计，和课程详情页进度口径保持一致。
-                    viewed = (
-                        db.session.query(Progress.content_id)
-                        .filter(
-                            Progress.student_id == u.id,
-                            Progress.content_id.in_(c_ids),
-                        )
-                        .distinct()
-                        .count()
-                    )
-                    progress_data.append(int((viewed / total) * 100))
-                    completed_counts.append(viewed)
-                else:
-                    progress_data.append(0)
-                    completed_counts.append(0)
-                    
+
+        content_totals = {}
+        viewed_totals = {}
+        if course_ids:
+            content_totals = dict(
+                db.session.query(Content.course_id, func.count(Content.id))
+                .filter(Content.course_id.in_(course_ids))
+                .group_by(Content.course_id)
+                .all()
+            )
+            viewed_totals = dict(
+                db.session.query(
+                    Content.course_id,
+                    func.count(func.distinct(Progress.content_id)),
+                )
+                .join(Progress, Progress.content_id == Content.id)
+                .filter(
+                    Progress.student_id == u.id,
+                    Content.course_id.in_(course_ids),
+                )
+                .group_by(Content.course_id)
+                .all()
+            )
+
+        for course_id in course_ids:
+            total = int(content_totals.get(course_id, 0) or 0)
+            viewed = int(viewed_totals.get(course_id, 0) or 0)
+            progress_data.append(int((viewed / total) * 100) if total > 0 else 0)
+            completed_counts.append(viewed)
+
         data = {
             "role": "student",
             "courseNames": course_names,
@@ -838,31 +852,39 @@ def user_analytics():
         }
         cache_set_json(cache_key, data, ttl_seconds=60)
         return ok(data)
-        
     elif is_teacher(u):
-        # 教师端：只展示"已发布"课程的选修人数分布
+        # 教师端优先走聚合查询，减少按课程重复统计。
         courses = Course.query.filter_by(teacher_id=u.id, status="published").all()
-        course_names = []
-        course_ids = []
+        course_names = [c.title for c in courses]
+        course_ids = [c.id for c in courses]
         enroll_counts = []
         review_averages = []
-        
         total_students = 0
-        
+
+        enroll_totals = {}
+        review_avg_map = {}
+        if course_ids:
+            enroll_totals = dict(
+                db.session.query(Enrollment.course_id, func.count(Enrollment.id))
+                .filter(Enrollment.course_id.in_(course_ids))
+                .group_by(Enrollment.course_id)
+                .all()
+            )
+            review_avg_map = dict(
+                db.session.query(Review.course_id, func.avg(Review.rating))
+                .filter(Review.course_id.in_(course_ids))
+                .group_by(Review.course_id)
+                .all()
+            )
+
         for c in courses:
-            course_names.append(c.title)
-            course_ids.append(c.id)
-            
-            # 选修人数统计
-            c_enrolled = Enrollment.query.filter_by(course_id=c.id).count()
+            c_enrolled = int(enroll_totals.get(c.id, 0) or 0)
             enroll_counts.append(c_enrolled)
             total_students += c_enrolled
-            
-            # 平均评分统计
-            reviews = Review.query.filter_by(course_id=c.id).all()
-            avg = sum(r.rating for r in reviews) / len(reviews) if reviews else 0
+
+            avg = float(review_avg_map.get(c.id, 0) or 0)
             review_averages.append(round(avg, 1))
-            
+
         data = {
             "role": "teacher",
             "courseNames": course_names,
@@ -873,5 +895,4 @@ def user_analytics():
         }
         cache_set_json(cache_key, data, ttl_seconds=60)
         return ok(data)
-        
     return err("无权限访问大屏数据", status=403)
