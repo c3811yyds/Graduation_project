@@ -194,9 +194,23 @@ def course_list_cache_key(u: User | None):
     return f"courses:list:{role_of(u) or 'unknown'}:{u.id}"
 
 
+def course_detail_cache_key(course_id: int, u: User | None):
+    """课程详情按课程和访问用户维度分桶缓存，避免学生选课状态串用。"""
+    if u is None:
+        return f"courses:detail:{course_id}:guest"
+    return f"courses:detail:{course_id}:{role_of(u) or 'unknown'}:{u.id}"
+
+
 def invalidate_course_list_cache():
     """课程和选课写操作完成后，统一清理课程列表缓存。"""
     cache_delete_pattern("courses:list:*")
+
+
+def invalidate_course_detail_cache(course_id: int | None):
+    """课程详情命中频繁，相关写操作后需要同步清理详情缓存。"""
+    if not course_id:
+        return
+    cache_delete_pattern(f"courses:detail:{course_id}:*")
 
 
 def invalidate_user_analytics_cache(user_id: int | None):
@@ -348,7 +362,14 @@ def get_course(course_id):
         if not u or not (is_teacher(u) and c.teacher_id == u.id):
             return err("无权限访问该课程", status=403)
 
-    return ok(serialize_course(c, u))
+    cache_key = course_detail_cache_key(course_id, u)
+    cached = cache_get_json(cache_key)
+    if cached is not None:
+        return ok(cached)
+
+    data = serialize_course(c, u)
+    cache_set_json(cache_key, data, ttl_seconds=60)
+    return ok(data)
 
 
 # [前端对应]: 教师首页 (HomeView.vue) -> 右上角 "+ 创建新课程" 弹窗内确定按钮
@@ -387,6 +408,7 @@ def create_course():
     db.session.add(c)
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_course_detail_cache(c.id)
     return ok(serialize_course(c, u), "创建成功", status=201)
 
 
@@ -436,6 +458,7 @@ def update_course(course_id):
     c.updated_at = now()
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_course_detail_cache(c.id)
     if c.status == "published":
         invalidate_user_analytics_cache(c.teacher_id)
         invalidate_admin_analytics_cache()
@@ -462,6 +485,7 @@ def publish_course(course_id):
     c.updated_at = now()
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_course_detail_cache(c.id)
     invalidate_user_analytics_cache(c.teacher_id)
     invalidate_admin_analytics_cache()
     return ok(serialize_course(c, u), "发布成功")
@@ -487,6 +511,7 @@ def unpublish_course(course_id):
     c.updated_at = now()
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_course_detail_cache(c.id)
     invalidate_user_analytics_cache(c.teacher_id)
     invalidate_admin_analytics_cache()
     return ok(serialize_course(c, u), "下架成功")
@@ -525,6 +550,7 @@ def delete_course(course_id):
     db.session.delete(c)
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_course_detail_cache(course_id)
     return ok({"id": course_id}, "课程已永久删除")
 
 # ---------- enrollment ----------
@@ -564,6 +590,7 @@ def enroll(course_id):
 
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_course_detail_cache(course_id)
     invalidate_user_analytics_cache(u.id)
     invalidate_user_analytics_cache(c.teacher_id)
     invalidate_admin_analytics_cache()
@@ -584,6 +611,7 @@ def drop(course_id):
         db.session.delete(rec)
         db.session.commit()
         invalidate_course_list_cache()
+        invalidate_course_detail_cache(course_id)
         invalidate_user_analytics_cache(u.id)
         invalidate_user_analytics_cache(c.teacher_id if c else None)
         invalidate_admin_analytics_cache()
@@ -1137,6 +1165,7 @@ def create_course_review(course_id):
     db.session.add(r)
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_course_detail_cache(course_id)
     invalidate_user_analytics_cache(u.id)
     invalidate_user_analytics_cache(c.teacher_id)
     invalidate_admin_analytics_cache()
@@ -1163,6 +1192,7 @@ def delete_course_review(course_id, review_id):
     db.session.delete(r)
     db.session.commit()
     invalidate_course_list_cache()
+    invalidate_course_detail_cache(course_id)
     invalidate_user_analytics_cache(r.user_id)
     invalidate_user_analytics_cache(c.teacher_id)
     invalidate_admin_analytics_cache()
