@@ -6,6 +6,7 @@ import http from "../api/http";
 const router = useRouter();
 const me = ref(null);
 const courses = ref([]);
+const advice = ref(null);
 const guestSearchInput = ref("");
 const guestSearchKeyword = ref("");
 const studentAvailableSearchInput = ref("");
@@ -64,6 +65,18 @@ const filteredGuestCourses = computed(() =>
   courses.value.filter((c) => courseMatchesKeyword(c, guestSearchKeyword.value))
 );
 
+const advicePanelTitle = computed(() => {
+  const role = advice.value?.role || me.value?.role;
+  if (role === "teacher") return "智能教学建议";
+  if (role === "admin") return "智能运营建议";
+  return "智能学习建议";
+});
+
+const adviceQuickStats = computed(() => (advice.value?.stats || []).slice(0, 3));
+const adviceBriefText = computed(() => {
+  return advice.value?.focus?.description || advice.value?.summary || "";
+});
+
 // [功能说明]: 页面初始化时检查是否有 Token 并加载当前用户信息，判断是学生还是教师。
 async function loadMe() {
   const token = sessionStorage.getItem("token");
@@ -93,12 +106,37 @@ function openDetail(id) {
   router.push(`/courses/${id}`);
 }
 
+// 课程大厅仅展示轻量建议，详细分析仍进入数据总览查看
+async function loadAdvice() {
+  const token = sessionStorage.getItem("token");
+  if (!token) {
+    advice.value = null;
+    return;
+  }
+  try {
+    const res = await http.get("/users/learning-advice");
+    advice.value = res.data?.data || null;
+  } catch {
+    advice.value = null;
+  }
+}
+
+function goDashboard() {
+  router.push("/dashboard");
+}
+
+function openAdviceAction(path) {
+  if (!path) return;
+  router.push(path);
+}
+
 // [功能说明]: 学生点击 "选课" 按钮触发，后端建立绑定关系后刷新列表
 async function enroll(courseId) {
   try {
     // [后端映射]: POST /api/courses/<id>/enroll -> 学生选课
     await http.post(`/courses/${courseId}/enroll`);
     await loadCourses();
+    await loadAdvice();
   } catch (e) {
     alert(e?.response?.data?.message || "选课失败");
   }
@@ -110,6 +148,7 @@ async function drop(courseId) {
     // [后端映射]: DELETE /api/courses/<id>/enroll -> 学生退课
     await http.delete(`/courses/${courseId}/enroll`);
     await loadCourses();
+    await loadAdvice();
   } catch (e) {
     alert(e?.response?.data?.message || "退课失败");
   }
@@ -121,6 +160,7 @@ async function publishCourse(courseId) {
     // [后端映射]: PUT /api/courses/<id>/publish -> 教师发布课程
     await http.put(`/courses/${courseId}/publish`);
     await loadCourses();
+    await loadAdvice();
   } catch (e) {
     alert(e?.response?.data?.message || "发布失败");
   }
@@ -133,6 +173,7 @@ async function unpublishCourse(courseId) {
     // [后端映射]: PUT /api/courses/<id>/unpublish -> 教师下架课程
     await http.put(`/courses/${courseId}/unpublish`);
     await loadCourses();
+    await loadAdvice();
   } catch (e) {
     alert(e?.response?.data?.message || "下架失败");
   }
@@ -217,6 +258,7 @@ async function createCourse() {
     newCourseTitle.value = "";
     newCourseDesc.value = "";
     await loadCourses();
+    await loadAdvice();
   } catch (e) {
     alert(e?.response?.data?.message || "创建失败");
   }
@@ -240,13 +282,13 @@ function applyGuestSearch() {
 // [功能说明]: 登录态发生变化后，同步刷新当前用户信息和首页课程列表。
 const handleAuthChanged = async () => {
   await loadMe();
-  await loadCourses();
+  await Promise.all([loadCourses(), loadAdvice()]);
 };
 
 // [功能说明]: 首页挂载时初始化用户身份和课程大厅数据，并监听登录态变更。
 onMounted(async () => {
   await loadMe();
-  await loadCourses();
+  await Promise.all([loadCourses(), loadAdvice()]);
   window.addEventListener('user-auth-changed', handleAuthChanged);
 });
 
@@ -275,6 +317,29 @@ onUnmounted(() => {
             + 创建新课程
           </button>
         </div>
+      </div>
+    </section>
+
+    <section v-if="me && advice" class="advice-strip">
+      <div class="advice-strip-main">
+        <p class="advice-strip-kicker">{{ advicePanelTitle }}</p>
+        <h2 class="advice-strip-title">{{ advice.headline }}</h2>
+        <p class="advice-strip-summary">{{ adviceBriefText }}</p>
+        <div v-if="adviceQuickStats.length" class="advice-strip-stats">
+          <span v-for="item in adviceQuickStats" :key="item.label" class="advice-strip-stat">
+            {{ item.label }}：{{ item.value }}
+          </span>
+        </div>
+      </div>
+      <div class="advice-strip-actions">
+        <button
+          v-if="advice.focus?.action_path"
+          class="btn btn-primary"
+          @click="openAdviceAction(advice.focus.action_path)"
+        >
+          {{ advice.focus.action_label || "立即处理" }}
+        </button>
+        <button class="btn" @click="goDashboard">查看详细总览</button>
       </div>
     </section>
 
@@ -489,6 +554,61 @@ onUnmounted(() => {
   margin-bottom: 24px;
   box-shadow: var(--shadow);
 }
+.advice-strip {
+  border: 1px solid rgba(15, 118, 110, 0.16);
+  border-radius: 16px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #f8fffc 0%, #ffffff 55%, #f4faff 100%);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+}
+.advice-strip-main {
+  min-width: 0;
+}
+.advice-strip-kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #0f766e;
+  text-transform: uppercase;
+}
+.advice-strip-title {
+  margin: 0;
+  font-size: 24px;
+  color: var(--text);
+}
+.advice-strip-summary {
+  margin: 8px 0 0;
+  color: #52606d;
+  line-height: 1.6;
+}
+.advice-strip-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.advice-strip-stat {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  color: #334155;
+  font-size: 13px;
+}
+.advice-strip-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
 .panel-head {
   display: flex;
   justify-content: space-between;
@@ -635,6 +755,13 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  .advice-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .advice-strip-actions {
+    width: 100%;
+  }
   .panel-head {
     flex-direction: column;
     align-items: stretch;
