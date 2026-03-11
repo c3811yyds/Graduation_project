@@ -10,6 +10,7 @@ from routes_admin import admin_bp, bootstrap_admin_account
 from routes_course import course_bp, content_bp
 from routes_note import note_bp
 from routes_ai import ai_bp
+from routes_advice import advice_bp
 
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -78,6 +79,7 @@ def create_app():
     app.register_blueprint(content_bp)
     app.register_blueprint(note_bp)
     app.register_blueprint(ai_bp)
+    app.register_blueprint(advice_bp)
 
     @app.get("/api/health")
     def health():

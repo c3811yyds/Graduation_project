@@ -14,6 +14,59 @@
     <div v-else-if="error" class="center-msg error-text">{{ error }}</div>
 
     <template v-else>
+      <section v-if="advice" class="advice-panel">
+        <div class="advice-header">
+          <div>
+            <p class="advice-kicker">智能学习建议</p>
+            <p class="advice-kicker">{{ advicePanelTitle }}</p>
+            <h2 class="advice-title">{{ advice.headline }}</h2>
+            <p class="muted advice-summary">{{ advice.summary }}</p>
+          </div>
+        </div>
+
+        <div class="advice-stats">
+          <article v-for="item in adviceStats" :key="item.label" class="advice-stat">
+            <span class="advice-stat-label">{{ item.label }}</span>
+            <strong class="advice-stat-value">{{ item.value }}</strong>
+          </article>
+        </div>
+
+        <div class="advice-body">
+          <article v-if="advice.focus" class="advice-focus-card">
+            <span class="advice-focus-badge">当前优先事项</span>
+            <h3>{{ advice.focus.title }}</h3>
+            <p>{{ advice.focus.description }}</p>
+            <button
+              v-if="advice.focus.action_path"
+              class="btn btn-primary"
+              @click="openAdviceAction(advice.focus.action_path)"
+            >
+              {{ advice.focus.action_label || "立即处理" }}
+            </button>
+          </article>
+
+          <div v-if="adviceRecommendations.length" class="advice-list">
+            <article
+              v-for="item in adviceRecommendations"
+              :key="`${item.title}-${item.action_path}`"
+              class="advice-item"
+            >
+              <div>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.description }}</p>
+              </div>
+              <button
+                v-if="item.action_path"
+                class="btn"
+                @click="openAdviceAction(item.action_path)"
+              >
+                {{ item.action_label || "查看" }}
+              </button>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section v-if="showCourseControls" class="course-pager panel-lite">
         <div class="pager-row">
           <div class="pager-info">
@@ -128,6 +181,7 @@ const MAX_CUSTOM_COMPARE_COUNT = 8;
 const loading = ref(true);
 const error = ref("");
 const data = ref({});
+const advice = ref(null);
 const coursePage = ref(1);
 const coursePageSize = ref(DEFAULT_COURSE_PAGE_SIZE);
 const customCourseIdsInput = ref("");
@@ -155,6 +209,14 @@ const allEnrollCounts = computed(() => data.value?.enrollCounts || []);
 const allReviewAverages = computed(() => data.value?.reviewAverages || []);
 const allProgressRates = computed(() => data.value?.progressRates || []);
 const allCompletedCounts = computed(() => data.value?.completedCounts || []);
+const adviceStats = computed(() => advice.value?.stats || []);
+const adviceRecommendations = computed(() => advice.value?.recommendations || []);
+const advicePanelTitle = computed(() => {
+  const role = advice.value?.role;
+  if (role === "teacher") return "智能教学建议";
+  if (role === "admin") return "智能运营建议";
+  return "智能学习建议";
+});
 
 const courseRecords = computed(() =>
   allCourseNames.value.map((name, index) => ({
@@ -242,6 +304,11 @@ function goHome() {
   router.push("/");
 }
 
+function openAdviceAction(path) {
+  if (!path) return;
+  router.push(path);
+}
+
 // 切到上一组课程。
 function prevCoursePage() {
   if (coursePage.value > 1) coursePage.value -= 1;
@@ -306,8 +373,12 @@ onMounted(async () => {
     const meRes = await http.get("/users/me");
     const role = meRes.data?.data?.role;
     const endpoint = role === "admin" ? "/admin/analytics" : "/users/analytics";
-    const res = await http.get(endpoint);
-    data.value = res.data.data || {};
+    const [analyticsRes, adviceRes] = await Promise.all([
+      http.get(endpoint),
+      http.get("/users/learning-advice").catch(() => null),
+    ]);
+    data.value = analyticsRes.data.data || {};
+    advice.value = adviceRes?.data?.data || null;
     coursePage.value = 1;
   } catch (e) {
     error.value = e?.response?.data?.message || "加载数据总览失败";
@@ -553,6 +624,123 @@ const pieChartOption = computed(() => {
   min-width: 110px;
 }
 
+.advice-panel {
+  background: linear-gradient(145deg, #fffdf3 0%, #ffffff 58%, #f4fbff 100%);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.08);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.advice-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.advice-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #0f766e;
+  text-transform: uppercase;
+}
+
+.advice-header .advice-kicker:first-of-type {
+  display: none;
+}
+
+.advice-title {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--text);
+}
+
+.advice-summary {
+  margin: 0.6rem 0 0;
+  max-width: 860px;
+}
+
+.advice-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.2rem;
+}
+
+.advice-stat {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(15, 118, 110, 0.16);
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.advice-stat-label {
+  font-size: 0.9rem;
+  color: #52606d;
+}
+
+.advice-stat-value {
+  font-size: 1.25rem;
+  color: var(--text);
+}
+
+.advice-body {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.advice-focus-card,
+.advice-item {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+}
+
+.advice-focus-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.28rem 0.72rem;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.advice-focus-card h3,
+.advice-item h3 {
+  margin: 0.8rem 0 0.5rem;
+  color: var(--text);
+}
+
+.advice-focus-card p,
+.advice-item p {
+  margin: 0 0 1rem;
+  color: #52606d;
+  line-height: 1.65;
+}
+
+.advice-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.advice-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
 .charts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -632,6 +820,14 @@ const pieChartOption = computed(() => {
 
   .course-id-group {
     min-width: 100%;
+  }
+
+  .advice-body {
+    grid-template-columns: 1fr;
+  }
+
+  .advice-item {
+    flex-direction: column;
   }
 
   .charts-grid {
