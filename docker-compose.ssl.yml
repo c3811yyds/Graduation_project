@@ -1,0 +1,9 @@
+services:
+  frontend:
+    ports:
+      - "443:443"
+    volumes:
+      # 服务器专用 SSL 配置覆盖默认 HTTP 配置。
+      - ./frontend/nginx.ssl.conf:/etc/nginx/conf.d/default.conf:ro
+      # 服务器本地证书目录只读挂载到前端容器。
+      - ./ssl:/etc/nginx/ssl:ro
