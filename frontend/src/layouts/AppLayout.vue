@@ -11,6 +11,10 @@ const me = ref(null)
 const version = ref('')
 const authVisible = ref(false)
 const authMode = ref('login')
+const showBeianIcon = ref(true)
+
+// 公网安备图标固定从 Vite public 目录读取，后续只需替换同名文件即可。
+const beianIconUrl = '/beian-icon.png'
 
 // 返回课程大厅首页。
 function goHome() {
@@ -119,6 +123,24 @@ onMounted(() => {
       <slot />
     </main>
 
+    <footer class="footer">
+      <a
+        class="beian-link"
+        href="https://beian.mps.gov.cn/#/query/webSearch?code=45082102000465"
+        rel="noreferrer"
+        target="_blank"
+      >
+        <img
+          v-if="showBeianIcon"
+          :src="beianIconUrl"
+          alt="公安备案图标"
+          class="beian-icon"
+          @error="showBeianIcon = false"
+        />
+        <span>桂公网安备45082102000465号</span>
+      </a>
+    </footer>
+
     <MemoSidebar />
     <AiChatSidebar />
 
@@ -135,6 +157,8 @@ onMounted(() => {
 <style scoped>
 .layout {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .topbar {
@@ -189,8 +213,35 @@ onMounted(() => {
 }
 
 .main {
+  flex: 1;
   padding: 24px;
   max-width: 100%;
+}
+
+.footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px 24px 24px;
+}
+
+.beian-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #4b5563;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.beian-link:hover {
+  color: #1f2937;
+}
+
+.beian-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 
 .btn {
