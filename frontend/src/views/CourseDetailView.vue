@@ -902,6 +902,40 @@ async function sendMessage() {
   }
 }
 
+const MAX_UPLOAD_SIZE_MB = 50;
+const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+
+function isNetworkRequestError(error) {
+  return !!error && !error.response;
+}
+
+function getUploadErrorMessage(error) {
+  if (error?.response?.status === 413) {
+    return `上传失败：文件超过服务器限制，当前最大 ${MAX_UPLOAD_SIZE_MB}MB。`;
+  }
+
+  if (isNetworkRequestError(error)) {
+    return "上传失败：网络连接异常，请检查网络后重试。";
+  }
+
+  return error?.response?.data?.message || "上传失败，请稍后重试。";
+}
+
+async function getDownloadErrorMessage(error) {
+  const blobMessage = await readBlobErrorMessage(error?.response?.data, "");
+  if (blobMessage) return blobMessage;
+
+  if (error?.response?.status === 413) {
+    return "下载失败：文件超过服务器限制，请联系管理员处理。";
+  }
+
+  if (isNetworkRequestError(error)) {
+    return "下载失败：网络连接异常，或浏览器处理大文件超时，请稍后重试。";
+  }
+
+  return error?.response?.data?.message || "下载失败，请稍后重试。";
+}
+
 // [后端映射]: DELETE /api/courses/<id>/messages/<message_id> -> 删除自己发布的留言
 async function deleteMessage(messageId) {
   if (!confirm("确认删除这条留言吗？")) return;
@@ -925,6 +959,10 @@ function pickFile(e) {
   // [后端映射]: POST /api/courses/<id>/contents/upload -> 以 FormData 上传文件资料入 storage
 async function uploadContent() {
     if (!uploadFile.value) return;
+    if (uploadFile.value.size > MAX_UPLOAD_SIZE_BYTES) {
+      alert(`上传失败：文件大小超过 ${MAX_UPLOAD_SIZE_MB}MB，请压缩后重试。`);
+      return;
+    }
     const formData = new FormData();
     formData.append("file", uploadFile.value);
     
@@ -946,7 +984,7 @@ async function uploadContent() {
       uploadTitle.value = "";
       await loadLearningData();
     } catch (e) {
-      alert(e?.response?.data?.message || "上传失败");
+      alert(getUploadErrorMessage(e));
     }
   }
 
@@ -1016,8 +1054,7 @@ async function downloadContent(contentId) {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(blobUrl);
     } catch (e) {
-      const blobMessage = await readBlobErrorMessage(e?.response?.data, "");
-      alert(blobMessage || e?.response?.data?.message || "下载失败");
+      alert(await getDownloadErrorMessage(e));
     }
   }
 
